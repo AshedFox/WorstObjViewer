@@ -84,7 +84,7 @@ public class ObjParser
         return result;
     }
 
-    public static string ParseToWired(ParsedObj parsedObj)
+    public static string ParseToWiredBresenham(ParsedObj parsedObj)
     {
         StringBuilder lBuilder = new();
         StringBuilder vBuilder = new();
@@ -92,9 +92,10 @@ public class ObjParser
         var index = 1;
         foreach (List<int[]>? f in parsedObj.F)
         {
+            lBuilder.Append("l");
+
             for (var i = 0; i < f.Count - 1; i++)
             {
-                lBuilder.Append("l");
                 GraphicsProcessor.Bresenham(
                     new Vector2(parsedObj.V[f[i][0] - 1].Y, parsedObj.V[f[i][0] - 1].Z),
                     new Vector2(parsedObj.V[f[i + 1][0] - 1].Y, parsedObj.V[f[i + 1][0] - 1].Z)
@@ -109,10 +110,18 @@ public class ObjParser
                         lBuilder.Append($" {index++}");
                     });
                 });
-                lBuilder.AppendLine();
             }
+
+            lBuilder.AppendLine();
         }
 
         return string.Join("\n", vBuilder.ToString(), lBuilder.ToString());
     }
+
+    public static string ParseToWired(ParsedObj parsedObj) =>
+        string.Join(
+            "\n",
+            string.Join("\n", parsedObj.V.Select(v => $"v {v.X} {v.Y} {v.Z} {v.W}")),
+            string.Join("\n", parsedObj.F.Select(f => $"l {string.Join(" ", f.Select(p => $"{p[0]}"))}"))
+        );
 }

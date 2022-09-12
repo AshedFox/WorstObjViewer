@@ -48,7 +48,7 @@ if (Console.ReadLine() is { } path && File.Exists(path) && new FileInfo(path) is
     // VIEW MATRIX CREATION //
     Console.WriteLine("View matrix:");
     Console.WriteLine("1. Enter camera position vector");
-    Console.WriteLine("2. Enter camera forward vector");
+    Console.WriteLine("2. Enter camera target vector");
     Console.WriteLine("3. Enter camera up vector");
 
     if (Console.ReadLine() is not { } vpv || Console.ReadLine() is not { } vfv || Console.ReadLine() is not { } vuv)
@@ -91,12 +91,13 @@ if (Console.ReadLine() is { } path && File.Exists(path) && new FileInfo(path) is
             Console.WriteLine("3. Enter zNear");
             Console.WriteLine("4. Enter zFar");
 
-            if (Console.ReadLine() is not { } oWidth ||Console.ReadLine() is not { } oHeight ||
+            if (Console.ReadLine() is not { } oWidth || Console.ReadLine() is not { } oHeight ||
                 Console.ReadLine() is not { } oZNear || Console.ReadLine() is not { } oZFar)
             {
                 Console.WriteLine("Incorrect input");
                 return;
             }
+
             projection = GraphicsProcessor.CreateOrthographicMatrix(
                 float.Parse(oWidth, NumberStyles.Any, CultureInfo.InvariantCulture),
                 float.Parse(oHeight, NumberStyles.Any, CultureInfo.InvariantCulture),
@@ -111,12 +112,13 @@ if (Console.ReadLine() is { } path && File.Exists(path) && new FileInfo(path) is
             Console.WriteLine("3. Enter zNear");
             Console.WriteLine("4. Enter zFar");
 
-            if (Console.ReadLine() is not { } pWidth ||Console.ReadLine() is not { } pHeight ||
+            if (Console.ReadLine() is not { } pWidth || Console.ReadLine() is not { } pHeight ||
                 Console.ReadLine() is not { } pZNear || Console.ReadLine() is not { } pZFar)
             {
                 Console.WriteLine("Incorrect input");
                 return;
             }
+
             projection = GraphicsProcessor.CreatePerspectiveMatrix(
                 float.Parse(pWidth, NumberStyles.Any, CultureInfo.InvariantCulture),
                 float.Parse(pHeight, NumberStyles.Any, CultureInfo.InvariantCulture),
@@ -132,17 +134,20 @@ if (Console.ReadLine() is { } path && File.Exists(path) && new FileInfo(path) is
             Console.WriteLine("4. Enter zNear");
             Console.WriteLine("5. Enter zFar");
 
-            if (Console.ReadLine() is not { } widthAspect ||Console.ReadLine() is not { } heightAspect ||
+            if (Console.ReadLine() is not { } widthAspect || Console.ReadLine() is not { } heightAspect ||
                 Console.ReadLine() is not { } fov || Console.ReadLine() is not { } zNear ||
                 Console.ReadLine() is not { } zFar)
             {
                 Console.WriteLine("Incorrect input");
                 return;
             }
+
             projection = GraphicsProcessor.CreatePerspectiveFieldOfViewMatrix(
                 float.Parse(widthAspect, NumberStyles.Any, CultureInfo.InvariantCulture) /
                 float.Parse(heightAspect, NumberStyles.Any, CultureInfo.InvariantCulture),
-                float.Parse(fov, NumberStyles.Any, CultureInfo.InvariantCulture),
+                GraphicsProcessor.ConvertDegreesToRadians(
+                    float.Parse(fov, NumberStyles.Any, CultureInfo.InvariantCulture)
+                ),
                 float.Parse(zNear, NumberStyles.Any, CultureInfo.InvariantCulture),
                 float.Parse(zFar, NumberStyles.Any, CultureInfo.InvariantCulture)
             );
@@ -162,7 +167,7 @@ if (Console.ReadLine() is { } path && File.Exists(path) && new FileInfo(path) is
     Console.WriteLine("4. Enter yMin");
 
     if (Console.ReadLine() is not { } width || Console.ReadLine() is not { } height ||
-        Console.ReadLine() is not { } xMin|| Console.ReadLine() is not { } yMin)
+        Console.ReadLine() is not { } xMin || Console.ReadLine() is not { } yMin)
     {
         Console.WriteLine("Incorrect input");
         return;
@@ -194,9 +199,14 @@ if (Console.ReadLine() is { } path && File.Exists(path) && new FileInfo(path) is
     Console.Clear();
     Console.WriteLine("Successful");
 
+    //result.TransformVertices(Matrix4x4.CreateScale(new Vector3(1.0f, 2.0f, 2.0f)));
+    //result.TransformVertices(Matrix4x4.CreateRotationX(GraphicsProcessor.ConvertDegreesToRadians(45)));
+    //result.TransformVertices(Matrix4x4.CreateRotationY(GraphicsProcessor.ConvertDegreesToRadians(45)));
+    //result.TransformVertices(Matrix4x4.CreateRotationZ(GraphicsProcessor.ConvertDegreesToRadians(45)));
+
     /*Matrix4x4 model = GraphicsProcessor.CreateModelMatrix(
         new Vector3(1.0f, 1.0f, 1.0f),
-        new Vector3(-1.0f, 0, 0),
+        new Vector3(1.0f, 0, 0.0f),
         new Vector3(0, 1.0f, 0)
     );
     Matrix4x4 view = GraphicsProcessor.CreateViewMatrix(
@@ -206,24 +216,23 @@ if (Console.ReadLine() is { } path && File.Exists(path) && new FileInfo(path) is
     );
     Matrix4x4 projection = GraphicsProcessor.CreatePerspectiveFieldOfViewMatrix(
         16.0f / 9.0f,
-        ConvertDegreesToRadians(70.0f),
-        0.1f,
-        50.0f
-    );
-    Matrix4x4 projection = GraphicsProcessor.CreatePerspectiveMatrix(
-        400.0f,
-        400.0f,
-        0.1f,
-        50.0f
-    );
-    Matrix4x4 projection = GraphicsProcessor.CreateOrthographicMatrix(
-        800.0f,
-        800.0f,
+        GraphicsProcessor.ConvertDegreesToRadians(90.0f),
         0.1f,
         100.0f
     );
+    /*Matrix4x4 projection = GraphicsProcessor.CreatePerspectiveMatrix(
+        1920.0f,
+        1080.0f,
+        0.1f,
+        100.0f
+    );#1#
+    /*Matrix4x4 projection = GraphicsProcessor.CreateOrthographicMatrix(
+        640.0f,
+        480.0f,
+        0.1f,
+        100.0f
+    );#1#
     Matrix4x4 viewport = GraphicsProcessor.CreateViewportMatrix(1920.0f, 1080.0f, 0.0f, 0.0f);
-
 
     result.TransformVertices(viewport * projection * view * model);
 

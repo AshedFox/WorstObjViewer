@@ -72,13 +72,15 @@ public class GraphicsProcessor
 
     public static Matrix4x4 CreatePerspectiveMatrix(float width, float height, float zNear, float zFar)
     {
+        var negZFar = zFar / (zNear - zFar);
+
         Matrix4x4 result = Matrix4x4.Identity;
 
         result.M11 = 2.0f * zNear / width;
         result.M22 = 2.0f * zNear / height;
-        result.M33 = zFar / (zNear - zFar);
+        result.M33 = negZFar;
         result.M34 = -1.0f;
-        result.M43 = zNear * zFar / (zNear - zFar);
+        result.M43 = zNear * negZFar;
         result.M44 = 0.0f;
 
         return result;
@@ -86,13 +88,17 @@ public class GraphicsProcessor
 
     public static Matrix4x4 CreatePerspectiveFieldOfViewMatrix(float aspect, float fov, float zNear, float zFar)
     {
+        var yScale = 1.0f / MathF.Tan(fov * 0.5f);
+        var xScale = yScale / aspect;
+        var negZFar = zFar / (zNear - zFar);
+
         Matrix4x4 result = Matrix4x4.Identity;
 
-        result.M11 = 1.0f / (aspect * MathF.Tan(fov * 0.5f));
-        result.M22 = 1.0f / MathF.Tan(fov * 0.5f);
-        result.M33 = zFar / (zNear - zFar);
+        result.M11 = xScale;
+        result.M22 = yScale;
+        result.M33 = negZFar;
         result.M34 = -1.0f;
-        result.M43 = zNear * zFar / (zNear - zFar);
+        result.M43 = zNear * negZFar;
         result.M44 = 0.0f;
 
         return result;
@@ -133,14 +139,13 @@ public class GraphicsProcessor
         while (x1 != x2 || y1 != y2)
         {
             result.Add(new Vector2(x1, y1));
-            var error2 = error * 2;
-            if (error2 > -dY)
+            if (error * 2 > -dY)
             {
                 error -= dY;
                 x1 += signX;
             }
 
-            if (error2 < dX)
+            if (error * 2 < dX)
             {
                 error += dX;
                 y1 += signY;
