@@ -182,9 +182,48 @@ if (Console.ReadLine() is { } path && File.Exists(path) && new FileInfo(path) is
 
     Console.Clear();
 
-    Console.WriteLine("Transforming and saving...");
-
+    Console.WriteLine("Transforming...");
     result.TransformVertices(viewport * projection * view * model);
+    Console.Clear();
+
+    //result.TransformVertices(Matrix4x4.CreateScale(new Vector3(1.0f, 2.0f, 2.0f)));
+    //result.TransformVertices(Matrix4x4.CreateRotationX(GraphicsProcessor.ConvertDegreesToRadians(45)));
+    //result.TransformVertices(Matrix4x4.CreateRotationY(GraphicsProcessor.ConvertDegreesToRadians(45)));
+    //result.TransformVertices(Matrix4x4.CreateRotationZ(GraphicsProcessor.ConvertDegreesToRadians(45)));
+
+    /*Matrix4x4 model = GraphicsProcessor.CreateModelMatrix(
+        new Vector3(1.0f, 1.0f, 1.0f),
+        new Vector3(1.0f, 0, 0.0f),
+        new Vector3(0, 1.0f, 0)
+    );
+    Matrix4x4 view = GraphicsProcessor.CreateViewMatrix(
+        new Vector3(0.0f, 0.0f, 0.0f),
+        new Vector3(1.0f, 1.0f, 1.0f),
+        new Vector3(0.0f, 1.0f, 0.0f)
+    );
+    Matrix4x4 projectionFov = GraphicsProcessor.CreatePerspectiveFieldOfViewMatrix(
+        16.0f / 9.0f,
+        GraphicsProcessor.ConvertDegreesToRadians(45.0f),
+        1.0f,
+        100.0f
+    );
+    Matrix4x4 projectionP = GraphicsProcessor.CreatePerspectiveMatrix(
+        80.0f,
+        80.0f,
+        1.0f,
+        100.0f
+    );
+    Matrix4x4 projectionO = GraphicsProcessor.CreateOrthographicMatrix(
+        640.0f,
+        480.0f,
+        0.1f,
+        100.0f
+    );
+    Matrix4x4 viewport = GraphicsProcessor.CreateViewportMatrix(1920.0f, 1080.0f, 0.0f, 0.0f);
+
+    result.TransformVertices(viewport * projectionFov * view * model);*/
+
+    Console.WriteLine("Saving...");
 
     File.WriteAllText(
         $"{fileInfo.DirectoryName}/{Path.GetFileNameWithoutExtension(path)}-changed-model{fileInfo.Extension}",
@@ -198,53 +237,6 @@ if (Console.ReadLine() is { } path && File.Exists(path) && new FileInfo(path) is
 
     Console.Clear();
     Console.WriteLine("Successful");
-
-    //result.TransformVertices(Matrix4x4.CreateScale(new Vector3(1.0f, 2.0f, 2.0f)));
-    //result.TransformVertices(Matrix4x4.CreateRotationX(GraphicsProcessor.ConvertDegreesToRadians(45)));
-    //result.TransformVertices(Matrix4x4.CreateRotationY(GraphicsProcessor.ConvertDegreesToRadians(45)));
-    //result.TransformVertices(Matrix4x4.CreateRotationZ(GraphicsProcessor.ConvertDegreesToRadians(45)));
-
-    /*Matrix4x4 model = GraphicsProcessor.CreateModelMatrix(
-        new Vector3(1.0f, 1.0f, 1.0f),
-        new Vector3(1.0f, 0, 0.0f),
-        new Vector3(0, 1.0f, 0)
-    );
-    Matrix4x4 view = GraphicsProcessor.CreateViewMatrix(
-        new Vector3(1.0f, 0.0f, 0.0f),
-        new Vector3(10.0f, 0.0f, 0.0f),
-        new Vector3(0.0f, 1.0f, 0.0f)
-    );
-    Matrix4x4 projection = GraphicsProcessor.CreatePerspectiveFieldOfViewMatrix(
-        16.0f / 9.0f,
-        GraphicsProcessor.ConvertDegreesToRadians(90.0f),
-        0.1f,
-        100.0f
-    );
-    /*Matrix4x4 projection = GraphicsProcessor.CreatePerspectiveMatrix(
-        1920.0f,
-        1080.0f,
-        0.1f,
-        100.0f
-    );#1#
-    /*Matrix4x4 projection = GraphicsProcessor.CreateOrthographicMatrix(
-        640.0f,
-        480.0f,
-        0.1f,
-        100.0f
-    );#1#
-    Matrix4x4 viewport = GraphicsProcessor.CreateViewportMatrix(1920.0f, 1080.0f, 0.0f, 0.0f);
-
-    result.TransformVertices(viewport * projection * view * model);
-
-    File.WriteAllText(
-        $"{fileInfo.DirectoryName}/{Path.GetFileNameWithoutExtension(path)}-changed-model{fileInfo.Extension}",
-        result.ToString()
-    );
-
-    File.WriteAllText(
-        $"{fileInfo.DirectoryName}/{Path.GetFileNameWithoutExtension(path)}-changed-wire{fileInfo.Extension}",
-        ObjParser.ParseToWired(result)
-    );*/
 }
 else
 {
