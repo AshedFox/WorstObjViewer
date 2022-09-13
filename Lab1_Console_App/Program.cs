@@ -25,6 +25,26 @@ if (Console.ReadLine() is { } path && File.Exists(path) && new FileInfo(path) is
     ParsedObj result = ObjParser.ParseFromObjFile(File.ReadAllLines(path));
     Console.Clear();
 
+    // TRANSFORMATIONS //
+    Console.WriteLine("Transformations:");
+    Console.WriteLine("1. Enter rotation vector");
+    Console.WriteLine("2. Enter scale vector");
+
+    if (Console.ReadLine() is not { } rotation || Console.ReadLine() is not { } scale)
+    {
+        Console.WriteLine("incorrect input");
+        return;
+    }
+
+    var rotationVector = ParseToVector3(rotation);
+    var scaleVector = ParseToVector3(scale);
+    result.TransformVertices(Matrix4x4.CreateScale(scaleVector));
+    result.TransformVertices(Matrix4x4.CreateRotationX(GraphicsProcessor.ConvertDegreesToRadians(rotationVector.X)));
+    result.TransformVertices(Matrix4x4.CreateRotationY(GraphicsProcessor.ConvertDegreesToRadians(rotationVector.Y)));
+    result.TransformVertices(Matrix4x4.CreateRotationZ(GraphicsProcessor.ConvertDegreesToRadians(rotationVector.Z)));
+
+    Console.Clear();
+
     // MODEL MATRIX CREATION //
     Console.WriteLine("Model matrix:");
     Console.WriteLine("1. Enter position vector");
@@ -186,19 +206,19 @@ if (Console.ReadLine() is { } path && File.Exists(path) && new FileInfo(path) is
     result.TransformVertices(viewport * projection * view * model);
     Console.Clear();
 
-    //result.TransformVertices(Matrix4x4.CreateScale(new Vector3(1.0f, 2.0f, 2.0f)));
+    /*result.TransformVertices(Matrix4x4.CreateScale(new Vector3(1.0f, 2.0f, 1.0f)));
     //result.TransformVertices(Matrix4x4.CreateRotationX(GraphicsProcessor.ConvertDegreesToRadians(45)));
-    //result.TransformVertices(Matrix4x4.CreateRotationY(GraphicsProcessor.ConvertDegreesToRadians(45)));
+    result.TransformVertices(Matrix4x4.CreateRotationY(GraphicsProcessor.ConvertDegreesToRadians(45)));
     //result.TransformVertices(Matrix4x4.CreateRotationZ(GraphicsProcessor.ConvertDegreesToRadians(45)));
 
-    /*Matrix4x4 model = GraphicsProcessor.CreateModelMatrix(
+    Matrix4x4 model = GraphicsProcessor.CreateModelMatrix(
         new Vector3(1.0f, 1.0f, 1.0f),
         new Vector3(1.0f, 0, 0.0f),
         new Vector3(0, 1.0f, 0)
     );
     Matrix4x4 view = GraphicsProcessor.CreateViewMatrix(
         new Vector3(0.0f, 0.0f, 0.0f),
-        new Vector3(1.0f, 1.0f, 1.0f),
+        new Vector3(1.0f, 0.0f, 0.0f),
         new Vector3(0.0f, 1.0f, 0.0f)
     );
     Matrix4x4 projectionFov = GraphicsProcessor.CreatePerspectiveFieldOfViewMatrix(
