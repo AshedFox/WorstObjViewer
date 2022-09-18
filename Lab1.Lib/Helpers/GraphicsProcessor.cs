@@ -1,6 +1,6 @@
 ﻿using System.Numerics;
 
-namespace Lab1.Lib;
+namespace Lab1.Lib.Helpers;
 
 public class GraphicsProcessor
 {
@@ -58,34 +58,6 @@ public class GraphicsProcessor
         return result;
     }
 
-    public static Matrix4x4 CreateOrthographicMatrix(float width, float height, float zNear, float zFar)
-    {
-        Matrix4x4 result = Matrix4x4.Identity;
-
-        result.M11 = 2.0f / width;
-        result.M22 = 2.0f / height;
-        result.M33 = 1.0f / (zNear - zFar);
-        result.M43 = zNear / (zNear - zFar);
-
-        return result;
-    }
-
-    public static Matrix4x4 CreatePerspectiveMatrix(float width, float height, float zNear, float zFar)
-    {
-        var negZFar = zFar / (zNear - zFar);
-
-        Matrix4x4 result = Matrix4x4.Identity;
-
-        result.M11 = 2.0f * zNear / width;
-        result.M22 = 2.0f * zNear / height;
-        result.M33 = negZFar;
-        result.M34 = -1.0f;
-        result.M43 = zNear * negZFar;
-        result.M44 = 0.0f;
-
-        return result;
-    }
-
     public static Matrix4x4 CreatePerspectiveFieldOfViewMatrix(float aspect, float fov, float zNear, float zFar)
     {
         var yScale = 1.0f / MathF.Tan(fov * 0.5f);
@@ -116,7 +88,13 @@ public class GraphicsProcessor
         return result;
     }
 
-    public static float ConvertDegreesToRadians(float degrees) => (float)(Math.PI * degrees / 180.0f);
+    public static float AngleBetween(Vector3 v1, Vector3 v2) =>
+        //(float)Math.Acos(Vector3.Dot(v1, v2) / (v1.Length() * v2.Length()));
+        (float)Math.Atan2(Vector3.Cross(v1, v2).Length(), Vector3.Dot(v1, v2));
+
+    public static float ConvertDegreesToRadians(float degrees) => MathF.PI * degrees / 180.0f;
+
+    public static float ConvertRadiansToDegrees(float radians) => radians * 180.0f / MathF.PI;
 
     public static List<Vector2> Bresenham(Vector2 p1, Vector2 p2)
     {
