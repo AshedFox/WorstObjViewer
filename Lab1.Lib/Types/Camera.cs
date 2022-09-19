@@ -10,13 +10,16 @@ namespace Lab1.Lib.Types;
 public class Camera
 {
     private readonly float _minDistance = 5f;
-    private readonly float _maxDistance = 500f;
+    private readonly float _maxDistance = 5000f;
 
     public delegate void ChangeHandler();
 
     public event ChangeHandler? Change;
 
+    private bool _changing;
+
     private float _distance;
+    private Vector3 _target = Vector3.Zero;
     public Pivot Pivot { get; set; }
     public int ViewportWidth { get; set; }
     public int ViewportHeight { get; set; }
@@ -26,8 +29,12 @@ public class Camera
         get => _distance;
         set
         {
-            _distance = Math.Clamp(value, _minDistance, _maxDistance);
-            RecountPosition();
+            var newDistance = Math.Clamp(value, _minDistance, _maxDistance);
+            if (Math.Abs(_distance - newDistance) > 0.1)
+            {
+                _distance = newDistance;
+                RecountPosition();
+            }
         }
     }
 
@@ -37,7 +44,19 @@ public class Camera
     public float FarPlane { get; set; }
     public float PolarAngle { get; set; }
     public float AzimuthalAngle { get; set; }
-    public Vector3 Target { get; set; } = Vector3.Zero;
+
+    public Vector3 Target
+    {
+        get => _target;
+        set
+        {
+            if (value != _target)
+            {
+                _target = value;
+                OnChange();
+            }
+        }
+    }
 
     public Matrix4x4 View =>
         Matrix4x4.CreateLookAt(Pivot.Position, Target, Vector3.UnitY);
@@ -50,10 +69,10 @@ public class Camera
     public Matrix4x4 Viewport =>
         GraphicsProcessor.CreateViewportMatrix(ViewportWidth, ViewportHeight, 0, 0);
 
-    public Camera(Vector3 position, int viewportWidth, int viewportHeight, float distance,
+    public Camera(int viewportWidth, int viewportHeight, float distance,
         float fieldOfView, float nearPlane, float farPlane)
     {
-        Pivot = Pivot.CreateBasePivot(position);
+        Pivot = Pivot.CreateBasePivot(new Vector3(0, 0, -distance));
         ViewportWidth = viewportWidth;
         ViewportHeight = viewportHeight;
         Distance = distance;
@@ -64,7 +83,7 @@ public class Camera
 
     public void Rotate(Vector2 startPoint, Vector2 endPoint)
     {
-        var dX = (endPoint.X - startPoint.X) / ViewportWidth;
+        var dX = -(endPoint.X - startPoint.X) / ViewportWidth;
         var dY = (endPoint.Y - startPoint.Y) / ViewportHeight;
 
         var twoPI = 2 * MathF.PI;
@@ -73,7 +92,7 @@ public class Camera
         PolarAngle = ((PolarAngle + dX) % twoPI + twoPI) % twoPI;
         //AzimuthalAngle = ((AzimuthalAngle + dY) % halfPI + halfPI) % halfPI;
         //PolarAngle = Math.Clamp(PolarAngle + dX, 0, twoPI);
-        AzimuthalAngle = Math.Clamp(AzimuthalAngle + dY, -halfPI, halfPI) ;
+        AzimuthalAngle = Math.Clamp(AzimuthalAngle + dY, -halfPI, halfPI);
 
         RecountPosition();
     }
@@ -90,30 +109,39 @@ public class Camera
 
     public Vector2 ProjectToScreen(Vector3 world)
     {
-        Vector3 result = Vector3.Transform(
-            Vector3.Transform(
-                world,
+        //Vector4 vector4 = new(world, 1);
+        Vector4 result = Vector4.Transform(
+            Vector4.Transform(
+                new Vector4(world, 1),
                 View
             ),
             Projection
         );
-        result /= result.Z;
-        result = Vector3.Transform(result, Viewport);
+        result /= result.W;
+        result = Vector4.Transform(result, Viewport);
         return new Vector2(result.X, result.Y);
     }
 
-    public bool IsInView(Vector3 local) =>
-        /*if (local.Z <= Distance)
-        {
-            return false;
-        }
-        var angle = GraphicsProcessor.AngleBetween(Vector3.UnitZ, local);
-        if (Math.Abs(angle) > FarPlane / 2)
-        {
-            return false;
-        }
-        return true;*/
-        true;
+    public bool IsInView(Vector3 world)
+    {
+        Vector4 result = Vector4.Transform(
+            Vector4.Transform(
+                new Vector4(world, 1),
+                View
+            ),
+            Projection
+        );
+        result /= result.W;
+        return Math.Abs(result.X) <= 1 && Math.Abs(result.Y) <= 1 && Math.Abs(result.Z) <= 1;
+    }
 
-    public virtual void OnChange() => Change?.Invoke();
+    public virtual void OnChange()
+    {
+        if (!_changing)
+        {
+            _changing = true;
+            Change?.Invoke();
+            _changing = false;
+        }
+    }
 }

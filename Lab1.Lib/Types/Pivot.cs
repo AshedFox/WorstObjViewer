@@ -37,28 +37,36 @@ public class Pivot
 
     public static Pivot CreateBasePivot(Vector3 center) => new(center, Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ);
 
-    public void RotateX(float angle)
+    public void RotateX(float radians)
     {
-        Matrix4x4 rotationMatrix = Matrix4x4.CreateRotationX(angle);
+        Matrix4x4 rotationMatrix = Matrix4x4.CreateRotationX(radians);
         XAxis = Vector3.Transform(XAxis, rotationMatrix);
         YAxis = Vector3.Transform(YAxis, rotationMatrix);
         ZAxis = Vector3.Transform(ZAxis, rotationMatrix);
     }
 
-    public void RotateY(float angle)
+    public void RotateY(float radians)
     {
-        Matrix4x4 rotationMatrix = Matrix4x4.CreateRotationY(angle);
+        Matrix4x4 rotationMatrix = Matrix4x4.CreateRotationY(radians);
         XAxis = Vector3.Transform(XAxis, rotationMatrix);
         YAxis = Vector3.Transform(YAxis, rotationMatrix);
         ZAxis = Vector3.Transform(ZAxis, rotationMatrix);
     }
 
-    public void RotateZ(float angle)
+    public void RotateZ(float radians)
     {
-        Matrix4x4 rotationMatrix = Matrix4x4.CreateRotationZ(angle);
+        Matrix4x4 rotationMatrix = Matrix4x4.CreateRotationZ(radians);
         XAxis = Vector3.Transform(XAxis, rotationMatrix);
         YAxis = Vector3.Transform(YAxis, rotationMatrix);
         ZAxis = Vector3.Transform(ZAxis, rotationMatrix);
+    }
+
+    public void Scale(Vector3 scale)
+    {
+        Matrix4x4 scaleMatrix = Matrix4x4.CreateScale(scale);
+        XAxis = Vector3.Transform(XAxis, scaleMatrix);
+        YAxis = Vector3.Transform(YAxis, scaleMatrix);
+        ZAxis = Vector3.Transform(ZAxis, scaleMatrix);
     }
 
     public void Move(Vector3 moveVector) => Position += moveVector;

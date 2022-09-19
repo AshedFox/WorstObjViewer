@@ -14,6 +14,8 @@
         <DockPanel>
             <Menu>
                 <MenuItem Name="OpenFileMenuItem" Header="Файл" Click="OpenFileMenuItem_OnClick" />
+                <MenuItem Name="AutoScaleMenuItem" Header="Авто-масштаб" Click="AutoScaleMenuItem_OnClick" />
+                <MenuItem Name="CenterCameraMenuItem" Header="Центровать камеру" Click="CenterCameraMenuItem_OnClick" />
             </Menu>
         </DockPanel>
         <Grid Grid.Row="1">

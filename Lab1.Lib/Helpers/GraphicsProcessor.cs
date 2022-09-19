@@ -81,7 +81,7 @@ public class GraphicsProcessor
         Matrix4x4 result = Matrix4x4.Identity;
 
         result.M11 = width * 0.5f;
-        result.M22 = height * 0.5f;
+        result.M22 = -height * 0.5f;
         result.M41 = xMin + width * 0.5f;
         result.M42 = yMin + height * 0.5f;
 
