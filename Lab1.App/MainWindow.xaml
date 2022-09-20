@@ -14,21 +14,39 @@
         <DockPanel>
             <Menu>
                 <MenuItem Name="OpenFileMenuItem" Header="Файл" Click="OpenFileMenuItem_OnClick" />
-                <MenuItem Name="AutoScaleMenuItem" Header="Авто-масштаб" Click="AutoScaleMenuItem_OnClick" />
-                <MenuItem Name="CenterCameraMenuItem" Header="Центровать камеру" Click="CenterCameraMenuItem_OnClick" />
+                <MenuItem Name="ResetShiftMenuItem" Header="Сбросить смещение" Click="ResetShiftMenuItem_OnClick" />
+                <MenuItem Name="ResetCameraMenuItem" Header="Сбросить положение камеры"
+                          Click="ResetCameraMenuItem_OnClick" />
             </Menu>
         </DockPanel>
         <Grid Grid.Row="1">
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-            <Grid Grid.Row="0" Background="Gainsboro" Name="ModelCanvas" MouseMove="ModelCanvas_OnMouseMove"
+            <Grid Margin="2" VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Label Grid.Column="0" Content="Скорость камеры" />
+                <Slider Grid.Column="1" Name="CameraSpeedSlider" Minimum="1" Maximum="20" Interval="1" Value="1"
+                        TickPlacement="BottomRight"
+                        TickFrequency="1" IsSnapToTickEnabled="True"
+                        ValueChanged="CameraSpeedSlider_OnValueChanged" />
+                <Label Grid.Column="2"
+                       Content="{Binding ElementName=CameraSpeedSlider, Path=Value, UpdateSourceTrigger=PropertyChanged}"
+                       Width="40" />
+            </Grid>
+
+            <Grid Grid.Row="1" Background="Gainsboro" Name="ModelCanvas" MouseMove="ModelCanvas_OnMouseMove"
                   SizeChanged="ModelCanvas_OnSizeChanged" MouseDown="ModelCanvas_OnMouseDown"
                   MouseWheel="ModelCanvas_OnMouseWheel">
                 <Image Name="ModelImage" Stretch="UniformToFill" />
             </Grid>
-            <Label Grid.Row="1" Name="CoordsLabel" />
+            <Label Grid.Row="2" Name="CoordsLabel" />
         </Grid>
     </Grid>
 </Window>

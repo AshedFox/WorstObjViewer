@@ -17,8 +17,6 @@ public class Model
     {
         Pivot = Pivot.CreateBasePivot(Vector3.Zero);
         Pivot.Scale(new Vector3(0.2f, 0.2f, 0.2f));
-        Pivot.RotateY(GraphicsProcessor.ConvertDegreesToRadians(90));
-        //Pivot.RotateZ(GraphicsProcessor.ConvertDegreesToRadians(180));
         LocalVertices = vertices;
         WorldVertices = vertices.Select(v => Pivot.ToWorldCoords(v)).ToList();
         TexturesVertices = texturesVertices;
