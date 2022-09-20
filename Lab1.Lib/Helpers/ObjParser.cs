@@ -48,12 +48,12 @@ public static class ObjParser
             var subValues = value.Split('/').Take(3).ToArray();
             Model.PolygonPoint polyPoint = new() { VertexIndex = int.Parse(subValues[0]) };
 
-            if (subValues.ElementAtOrDefault(1) is { } textureIndex)
+            if (subValues.ElementAtOrDefault(1) is { Length: > 0 } textureIndex)
             {
                 polyPoint.TextureIndex = int.Parse(textureIndex);
             }
 
-            if (subValues.ElementAtOrDefault(2) is { } normalIndex)
+            if (subValues.ElementAtOrDefault(2) is { Length: > 0 } normalIndex)
             {
                 polyPoint.NormalIndex = int.Parse(normalIndex);
             }

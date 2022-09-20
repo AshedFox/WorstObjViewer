@@ -102,7 +102,7 @@ public class Camera
         var dY = (endPoint.Y - startPoint.Y) / ViewportHeight;
 
         var twoPI = 2 * MathF.PI;
-        var halfPI = MathF.PI / 2 - 0.000001f;
+        var halfPI = MathF.PI / 2 - 0.00001f;
 
         PolarAngle = ((PolarAngle + dX) % twoPI + twoPI) % twoPI;
         AzimuthalAngle = Math.Clamp(AzimuthalAngle + dY, -halfPI, halfPI);
@@ -120,7 +120,7 @@ public class Camera
             Distance * MathF.Cos(AzimuthalAngle) * MathF.Cos(PolarAngle)
         );
 
-        var d = MathF.Sqrt(
+        /*var d = MathF.Sqrt(
             MathF.Pow(Pivot.Position.X - Target.X, 2) +
             MathF.Pow(Pivot.Position.Y - Target.Y, 2) +
             MathF.Pow(Pivot.Position.Z - Target.Z, 2)
@@ -130,7 +130,7 @@ public class Camera
             -d * MathF.Cos(AzimuthalAngle) * MathF.Sin(PolarAngle),
             d * MathF.Sin(AzimuthalAngle),
             d * MathF.Cos(AzimuthalAngle) * MathF.Cos(PolarAngle)
-        );
+        );*/
 
         OnChange();
     }

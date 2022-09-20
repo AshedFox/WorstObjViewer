@@ -16,7 +16,7 @@ public class Model
         List<List<PolygonPoint>> polygons)
     {
         Pivot = Pivot.CreateBasePivot(Vector3.Zero);
-        Pivot.Scale(new Vector3(0.2f, 0.2f, 0.2f));
+        //Pivot.Scale(new Vector3(0.2f, 0.2f, 0.2f));
         LocalVertices = vertices;
         WorldVertices = vertices.Select(v => Pivot.ToWorldCoords(v)).ToList();
         TexturesVertices = texturesVertices;
