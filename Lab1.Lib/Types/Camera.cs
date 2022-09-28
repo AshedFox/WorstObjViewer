@@ -86,8 +86,8 @@ public class Camera
 
     public void Move(Vector2 startPoint, Vector2 endPoint)
     {
-        var dX = (endPoint.X - startPoint.X) / ViewportWidth;
-        var dY = (endPoint.Y - startPoint.Y) / ViewportHeight;
+        var dX = Speed * (endPoint.X - startPoint.X) / ViewportWidth;
+        var dY = Speed * (endPoint.Y - startPoint.Y) / ViewportHeight;
 
         Target = new Vector3(
             Target.X + dX,
@@ -98,11 +98,11 @@ public class Camera
 
     public void Rotate(Vector2 startPoint, Vector2 endPoint)
     {
-        var dX = -(endPoint.X - startPoint.X) / ViewportWidth;
-        var dY = (endPoint.Y - startPoint.Y) / ViewportHeight;
+        var dX = Speed * (endPoint.X - startPoint.X) / ViewportWidth;
+        var dY = Speed * (endPoint.Y - startPoint.Y) / ViewportHeight;
 
         var twoPI = 2 * MathF.PI;
-        var halfPI = MathF.PI / 2 - 0.00001f;
+        var halfPI = MathF.PI / 2 - 0.01f;
 
         PolarAngle = ((PolarAngle + dX) % twoPI + twoPI) % twoPI;
         AzimuthalAngle = Math.Clamp(AzimuthalAngle + dY, -halfPI, halfPI);

@@ -114,8 +114,6 @@ public class SceneManager
                                     {
                                         Vector2 v1 = camera.ProjectToScreen(model.WorldVertices[vertexIndex1]);
                                         Vector2 v2 = camera.ProjectToScreen(model.WorldVertices[vertexIndex2]);
-                                        //Vector2 v1 = projected[vertexIndex1];
-                                        //Vector2 v2 = projected[vertexIndex2];
 
                                         var x1 = (int)Math.Floor(v1.X);
                                         var x2 = (int)Math.Floor(v2.X);
@@ -124,25 +122,34 @@ public class SceneManager
                                         var dx = Math.Abs(x2 - x1);
                                         var dy = Math.Abs(y2 - y1);
 
-                                        var error = 2 * dy - dx;
-                                        for (var j = 0; j <= dx; j++)
+                                        var signX = x1 < x2 ? 1 : -1;
+                                        var signY = y1 < y2 ? 1 : -1;
+                                        var error = dx - dy;
+
+                                        var offset = (x2 + y2 * rect.Width) * bytesPerPixel;
+                                        if (offset >= 0 && offset < _pixels.Length)
                                         {
-                                            var offset = (x1 + y1 * rect.Width) * bytesPerPixel;
+                                            _pixels[offset] = 255;
+                                        }
+
+
+                                        while (x1 != x2 || y1 != y2)
+                                        {
+                                            offset = (x1 + y1 * rect.Width) * bytesPerPixel;
                                             if (offset >= 0 && offset < _pixels.Length)
                                             {
                                                 _pixels[offset] = 255;
                                             }
 
-                                            x1 = x1 < x2 ? x1 + 1 : x1 - 1;
-
-                                            if (error < 0)
+                                            if (error * 2 > -dy)
                                             {
-                                                error = error + 2 * dy;
+                                                error -= dy;
+                                                x1 += signX;
                                             }
-                                            else
+                                            else if (error * 2 < dx)
                                             {
-                                                y1 = y1 < y2 ? y1 + 1 : y1 - 1;
-                                                error = error + 2 * dy - 2 * dx;
+                                                error += dx;
+                                                y1 += signY;
                                             }
                                         }
                                     }
