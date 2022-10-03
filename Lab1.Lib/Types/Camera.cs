@@ -16,8 +16,6 @@ public class Camera
 
     public event ChangeHandler? Change;
 
-    private float _distance;
-    private Vector3 _target = Vector3.Zero;
     private float _speed = 1.0f;
     public Pivot Pivot { get; set; }
     public int ViewportWidth { get; set; }
@@ -29,19 +27,7 @@ public class Camera
         set => _speed = Math.Clamp(value, 1, 20);
     }
 
-    public float Distance
-    {
-        get => _distance;
-        set
-        {
-            var newDistance = Math.Clamp(value, _minDistance, _maxDistance);
-            if (Math.Abs(_distance - newDistance) > 0.1)
-            {
-                _distance = newDistance;
-                RecountPosition();
-            }
-        }
-    }
+    public float Distance { get; set; }
 
     public float Aspect => (float)ViewportWidth / ViewportHeight;
     public float FieldOfView { get; set; }
@@ -50,18 +36,7 @@ public class Camera
     public float PolarAngle { get; set; }
     public float AzimuthalAngle { get; set; }
 
-    public Vector3 Target
-    {
-        get => _target;
-        set
-        {
-            if (_target != value)
-            {
-                _target = value;
-                RecountPosition();
-            }
-        }
-    }
+    public Vector3 Target { get; set; } = Vector3.Zero;
 
     public Matrix4x4 View =>
         Matrix4x4.CreateLookAt(Pivot.Position, Target, Vector3.UnitY);
@@ -86,51 +61,49 @@ public class Camera
 
     public void Move(Vector2 startPoint, Vector2 endPoint)
     {
-        var dX = Speed * (endPoint.X - startPoint.X) / ViewportWidth;
-        var dY = Speed * (endPoint.Y - startPoint.Y) / ViewportHeight;
+        var dX = -30 * Speed * (endPoint.X - startPoint.X) / ViewportWidth;
+        var dY = 30 * Speed * (endPoint.Y - startPoint.Y) / ViewportHeight;
 
         Target = new Vector3(
-            Target.X + dX,
+            Target.X + MathF.Cos(PolarAngle) * dX,
             Target.Y + dY,
-            Target.Z
+            Target.Z - MathF.Sin(PolarAngle) * dX
         );
-    }
-
-    public void Rotate(Vector2 startPoint, Vector2 endPoint)
-    {
-        var dX = Speed * (endPoint.X - startPoint.X) / ViewportWidth;
-        var dY = Speed * (endPoint.Y - startPoint.Y) / ViewportHeight;
-
-        var twoPI = 2 * MathF.PI;
-        var halfPI = MathF.PI / 2 - 0.01f;
-
-        PolarAngle = ((PolarAngle + dX) % twoPI + twoPI) % twoPI;
-        AzimuthalAngle = Math.Clamp(AzimuthalAngle + dY, -halfPI, halfPI);
 
         RecountPosition();
     }
 
-    public void ChangeDistance(float delta) => Distance += Speed * delta;
+    public void Rotate(Vector2 startPoint, Vector2 endPoint)
+    {
+        var dX = -Speed * (endPoint.X - startPoint.X) / ViewportWidth;
+        var dY = Speed * (endPoint.Y - startPoint.Y) / ViewportHeight;
+
+        var twoPi = 2 * MathF.PI;
+        var halfPi = MathF.PI / 2 - 0.1f;
+
+        PolarAngle = ((PolarAngle + dX) % twoPi + twoPi) % twoPi;
+        AzimuthalAngle = Math.Clamp(AzimuthalAngle + dY, -halfPi, halfPi);
+
+        RecountPosition();
+    }
+
+    public void ChangeDistance(float delta)
+    {
+        var newDistance = Math.Clamp(Distance + Speed * delta, _minDistance, _maxDistance);
+        if (Math.Abs(newDistance - Distance) > 0.1)
+        {
+            Distance = newDistance;
+            RecountPosition();
+        }
+    }
 
     private void RecountPosition()
     {
         Pivot.Position = new Vector3(
-            -Distance * MathF.Cos(AzimuthalAngle) * MathF.Sin(PolarAngle),
+            Distance * MathF.Cos(AzimuthalAngle) * MathF.Sin(PolarAngle),
             Distance * MathF.Sin(AzimuthalAngle),
             Distance * MathF.Cos(AzimuthalAngle) * MathF.Cos(PolarAngle)
-        );
-
-        /*var d = MathF.Sqrt(
-            MathF.Pow(Pivot.Position.X - Target.X, 2) +
-            MathF.Pow(Pivot.Position.Y - Target.Y, 2) +
-            MathF.Pow(Pivot.Position.Z - Target.Z, 2)
-        );
-
-        Pivot.Position = new Vector3(
-            -d * MathF.Cos(AzimuthalAngle) * MathF.Sin(PolarAngle),
-            d * MathF.Sin(AzimuthalAngle),
-            d * MathF.Cos(AzimuthalAngle) * MathF.Cos(PolarAngle)
-        );*/
+        ) + Target;
 
         OnChange();
     }
@@ -168,6 +141,7 @@ public class Camera
         AzimuthalAngle = 0;
         Target = Vector3.Zero;
         Pivot = Pivot.CreateBasePivot(new Vector3(0, 0, Distance));
+
         RecountPosition();
     }
 

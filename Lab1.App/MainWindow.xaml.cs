@@ -41,49 +41,69 @@ public partial class MainWindow : Window
     public SceneManager SceneManager { get; } = SceneManager.Instance;
 
     public Vector2 TempPoint { get; set; }
+    public bool IsMoving { get; set; } = false;
 
     private void ModelCanvas_OnMouseMove(object sender, MouseEventArgs e)
     {
-        if (e.LeftButton == MouseButtonState.Pressed)
+        if (IsMoving)
         {
-            Point endPoint = e.GetPosition(ModelCanvas);
-            Vector2 point = new((float)endPoint.X, (float)endPoint.Y);
-            var dx = Math.Abs(point.X - TempPoint.X);
-            var dy = Math.Abs(point.Y - TempPoint.Y);
-
-            if (dx > SystemParameters.MinimumHorizontalDragDistance ||
-                dy > SystemParameters.MinimumVerticalDragDistance)
+            if (e.LeftButton == MouseButtonState.Pressed)
             {
-                if (Keyboard.IsKeyDown(Key.LeftShift))
+                Point endPoint = e.GetPosition(ModelCanvas);
+                Vector2 point = new((float)endPoint.X, (float)endPoint.Y);
+                var dx = Math.Abs(point.X - TempPoint.X);
+                var dy = Math.Abs(point.Y - TempPoint.Y);
+
+                if (dx > SystemParameters.MinimumHorizontalDragDistance ||
+                    dy > SystemParameters.MinimumVerticalDragDistance)
                 {
-                    if (dx > dy)
+                    if (Keyboard.IsKeyDown(Key.LeftShift))
                     {
-                        SceneManager.MainCamera.Rotate(TempPoint, point with { Y = TempPoint.Y });
+                        if (dx > dy)
+                        {
+                            SceneManager.MainCamera.Rotate(TempPoint, point with { Y = TempPoint.Y });
+                        }
+                        else
+                        {
+                            SceneManager.MainCamera.Rotate(TempPoint, point with { X = TempPoint.X });
+                        }
                     }
                     else
                     {
-                        SceneManager.MainCamera.Rotate(TempPoint, point with { X = TempPoint.X });
+                        SceneManager.MainCamera.Rotate(TempPoint, point);
                     }
-                }
-                else
-                {
-                    SceneManager.MainCamera.Rotate(TempPoint, point);
-                }
 
-                TempPoint = point;
+                    TempPoint = point;
+                }
             }
-        }
-        else if (e.MiddleButton == MouseButtonState.Pressed)
-        {
-            Point endPoint = e.GetPosition(ModelCanvas);
-            Vector2 point = new((float)endPoint.X, (float)endPoint.Y);
-            var dx = Math.Abs(point.X - TempPoint.X);
-            var dy = Math.Abs(point.Y - TempPoint.Y);
-
-            if (dx > SystemParameters.MinimumHorizontalDragDistance ||
-                dy > SystemParameters.MinimumVerticalDragDistance)
+            else if (e.MiddleButton == MouseButtonState.Pressed)
             {
-                SceneManager.MainCamera.Move(TempPoint, point);
+                Point endPoint = e.GetPosition(ModelCanvas);
+                Vector2 point = new((float)endPoint.X, (float)endPoint.Y);
+                var dx = Math.Abs(point.X - TempPoint.X);
+                var dy = Math.Abs(point.Y - TempPoint.Y);
+
+                if (dx > SystemParameters.MinimumHorizontalDragDistance ||
+                    dy > SystemParameters.MinimumVerticalDragDistance)
+                {
+                    if (Keyboard.IsKeyDown(Key.LeftShift))
+                    {
+                        if (dx > dy)
+                        {
+                            SceneManager.MainCamera.Move(TempPoint, point with { Y = TempPoint.Y });
+                        }
+                        else
+                        {
+                            SceneManager.MainCamera.Move(TempPoint, point with { X = TempPoint.X });
+                        }
+                    }
+                    else
+                    {
+                        SceneManager.MainCamera.Move(TempPoint, point);
+                    }
+
+                    TempPoint = point;
+                }
             }
         }
     }
@@ -94,15 +114,20 @@ public partial class MainWindow : Window
 
     private void ModelCanvas_OnMouseDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.LeftButton == MouseButtonState.Pressed)
+        if (!IsMoving)
         {
-            Point position = e.GetPosition(ModelCanvas);
-            TempPoint = new Vector2((float)position.X, (float)position.Y);
-        }
-        else if (e.MiddleButton == MouseButtonState.Pressed)
-        {
-            Point position = e.GetPosition(ModelCanvas);
-            TempPoint = new Vector2((float)position.X, (float)position.Y);
+            if (e.LeftButton == MouseButtonState.Pressed)
+            {
+                IsMoving = true;
+                Point position = e.GetPosition(ModelCanvas);
+                TempPoint = new Vector2((float)position.X, (float)position.Y);
+            }
+            else if (e.MiddleButton == MouseButtonState.Pressed)
+            {
+                IsMoving = true;
+                Point position = e.GetPosition(ModelCanvas);
+                TempPoint = new Vector2((float)position.X, (float)position.Y);
+            }
         }
     }
 
@@ -133,6 +158,11 @@ public partial class MainWindow : Window
     private void CameraSpeedSlider_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e) =>
         SceneManager.MainCamera.Speed = (float)e.NewValue;
 
-    private void ResetShiftMenuItem_OnClick(object sender, RoutedEventArgs e) =>
-        SceneManager.MainCamera.Target = Vector3.Zero;
+    private void ModelCanvas_OnMouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton == MouseButton.Left || e.ChangedButton == MouseButton.Middle)
+        {
+            IsMoving = false;
+        }
+    }
 }

@@ -14,7 +14,6 @@
         <DockPanel>
             <Menu>
                 <MenuItem Name="OpenFileMenuItem" Header="Файл" Click="OpenFileMenuItem_OnClick" />
-                <MenuItem Name="ResetShiftMenuItem" Header="Сбросить смещение" Click="ResetShiftMenuItem_OnClick" />
                 <MenuItem Name="ResetCameraMenuItem" Header="Сбросить положение камеры"
                           Click="ResetCameraMenuItem_OnClick" />
             </Menu>
@@ -43,7 +42,7 @@
 
             <Grid Grid.Row="1" Background="Gainsboro" Name="ModelCanvas" MouseMove="ModelCanvas_OnMouseMove"
                   SizeChanged="ModelCanvas_OnSizeChanged" MouseDown="ModelCanvas_OnMouseDown"
-                  MouseWheel="ModelCanvas_OnMouseWheel">
+                  MouseWheel="ModelCanvas_OnMouseWheel" MouseUp="ModelCanvas_OnMouseUp">
                 <Image Name="ModelImage" Stretch="UniformToFill" />
             </Grid>
             <Label Grid.Row="2" Name="CoordsLabel" />
