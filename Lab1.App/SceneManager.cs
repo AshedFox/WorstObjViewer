@@ -20,10 +20,11 @@ public class SceneManager
 {
     public static SceneManager Instance { get; } = new();
 
-    private Model? _model;
-
     private byte[] _pixels = Array.Empty<byte>();
+    private float[] _zBuffer = Array.Empty<float>();
     private readonly SemaphoreSlim _semaphore = new(1, 1);
+    private readonly Vector3 _lightVector = new(0.5f, 0.5f, 1f);
+    private Dictionary<long, long> _renders = new();
 
     public delegate void ChangeHandler();
 
@@ -35,15 +36,7 @@ public class SceneManager
 
     public WriteableBitmap? WriteableBitmap { get; private set; }
 
-    public Model? Model
-    {
-        get => _model;
-        set
-        {
-            _model = value;
-            Redraw();
-        }
-    }
+    public Model? Model { get; set; }
 
     public int ViewportWidth { get; private set; }
     public int ViewportHeight { get; private set; }
@@ -54,6 +47,10 @@ public class SceneManager
 
     public void Init(int width, int height)
     {
+        _renders = new Dictionary<long, long>();
+        _pixels = Array.Empty<byte>();
+        _zBuffer = Array.Empty<float>();
+
         ViewportWidth = width;
         ViewportHeight = height;
         WriteableBitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Gray8, null);
@@ -61,6 +58,18 @@ public class SceneManager
             .1f, 1000.0f
         );
         MainCamera.Change += Redraw;
+
+        OnChange();
+    }
+
+    public void ChangeModel(Model model)
+    {
+        _renders = new Dictionary<long, long>();
+        _pixels = Array.Empty<byte>();
+        _zBuffer = Array.Empty<float>();
+
+        Model = model;
+        MainCamera.Reset();
 
         OnChange();
     }
@@ -82,90 +91,85 @@ public class SceneManager
         {
             if (Model is { } model && MainCamera is { } camera && WriteableBitmap is { } bitmap)
             {
-                try
+                var time = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+                _renders.Add(time, time);
+
+                await _semaphore.WaitAsync();
+
+                if (!_renders.ContainsKey(time))
                 {
-                    await _semaphore.WaitAsync();
-
-                    var bytesPerPixel = bitmap.Format.BitsPerPixel / 8;
-                    var size = ViewportHeight * ViewportWidth * bytesPerPixel;
-
-                    Int32Rect rect = new(0, 0, ViewportWidth, ViewportHeight);
-
-                    if (_pixels.Length != size)
-                    {
-                        Array.Resize(ref _pixels, size);
-                    }
-
-                    Array.Fill(_pixels, (byte)0);
-
-                    await Task.Run(() =>
-                    {
-                        Parallel.ForEach(model.Polygons,
-                            new ParallelOptions() { MaxDegreeOfParallelism = Environment.ProcessorCount - 1 },
-                            (polygon) =>
-                            {
-                                for (var i = 0; i < polygon.Count; i++)
-                                {
-                                    var vertexIndex1 = polygon[i].VertexIndex - 1;
-                                    var vertexIndex2 = polygon[(i + 1) % polygon.Count].VertexIndex - 1;
-
-                                    if (camera.IsInView(model.WorldVertices[vertexIndex1]) ||
-                                        camera.IsInView(model.WorldVertices[vertexIndex2]))
-                                    {
-                                        Vector2 v1 = camera.ProjectToScreen(model.WorldVertices[vertexIndex1]);
-                                        Vector2 v2 = camera.ProjectToScreen(model.WorldVertices[vertexIndex2]);
-
-                                        var x1 = (int)Math.Floor(v1.X);
-                                        var x2 = (int)Math.Floor(v2.X);
-                                        var y1 = (int)Math.Floor(v1.Y);
-                                        var y2 = (int)Math.Floor(v2.Y);
-                                        var dx = Math.Abs(x2 - x1);
-                                        var dy = Math.Abs(y2 - y1);
-
-                                        var signX = x1 < x2 ? 1 : -1;
-                                        var signY = y1 < y2 ? 1 : -1;
-                                        var error = dx - dy;
-
-                                        var offset = (x2 + y2 * rect.Width) * bytesPerPixel;
-                                        if (offset >= 0 && offset < _pixels.Length)
-                                        {
-                                            _pixels[offset] = 255;
-                                        }
-
-
-                                        while (x1 != x2 || y1 != y2)
-                                        {
-                                            offset = (x1 + y1 * rect.Width) * bytesPerPixel;
-                                            if (offset >= 0 && offset < _pixels.Length)
-                                            {
-                                                _pixels[offset] = 255;
-                                            }
-
-                                            if (error * 2 > -dy)
-                                            {
-                                                error -= dy;
-                                                x1 += signX;
-                                            }
-                                            else if (error * 2 < dx)
-                                            {
-                                                error += dx;
-                                                y1 += signY;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        );
-                    });
-
-                    bitmap.WritePixels(rect, _pixels, rect.Width * bytesPerPixel, 0);
-
                     _semaphore.Release();
+                    return;
                 }
-                catch
+
+                CancellationTokenSource? cancelSource = new CancellationTokenSource();
+
+                var bytesPerPixel = bitmap.Format.BitsPerPixel / 8;
+                var size = ViewportHeight * ViewportWidth * bytesPerPixel;
+
+                Int32Rect rect = new(0, 0, ViewportWidth, ViewportHeight);
+
+                if (_pixels.Length != size)
                 {
-                    // ignored
+                    Array.Resize(ref _pixels, size);
                 }
+
+                Array.Fill(_pixels, (byte)0);
+
+                if (_zBuffer.Length != ViewportHeight * ViewportWidth)
+                {
+                    Array.Resize(ref _zBuffer, ViewportHeight * ViewportWidth);
+                }
+
+                Array.Fill(_zBuffer, 0);
+
+                cancelSource.CancelAfter(1000);
+
+                await Task.Run(() =>
+                {
+                    Vector3[] screenVertices =
+                        model.WorldVertices.Select((v) => camera.ProjectToScreen(v)).ToArray();
+
+                    Parallel.ForEach(model.Polygons,
+                        new ParallelOptions() { MaxDegreeOfParallelism = Environment.ProcessorCount - 1 },
+                        (polygon) =>
+                        {
+                            if (cancelSource.IsCancellationRequested || polygon.TrueForAll((p) =>
+                                    !camera.IsInView(model.WorldVertices[p.VertexIndex - 1])))
+                            {
+                                return;
+                            }
+
+                            Vector3 n = model.WorldVertices[polygon[0].VertexIndex - 1];
+
+                            for (var i = 1; i < polygon.Count; i++)
+                            {
+                                Vector3.Cross(n, model.WorldVertices[polygon[i].VertexIndex - 1]);
+                                n = Vector3.Normalize(n);
+                            }
+
+                            n = Vector3.Normalize(n);
+
+                            var intensity = Math.Clamp(Vector3.Dot(n, _lightVector), 0, 1);
+
+                            GraphicsProcessor.DrawPolygon(ref _pixels, ref _zBuffer, ref polygon, ref screenVertices,
+                                rect.Width, rect.Height, intensity
+                            );
+                        }
+                    );
+                }, cancelSource.Token);
+
+                bitmap.WritePixels(rect, _pixels, rect.Width * bytesPerPixel, 0);
+
+                foreach (KeyValuePair<long, long> render in _renders)
+                {
+                    if (render.Value <= time)
+                    {
+                        _renders.Remove(render.Key);
+                    }
+                }
+
+                _semaphore.Release();
             }
 
             OnChange();

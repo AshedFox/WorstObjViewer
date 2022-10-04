@@ -1,7 +1,6 @@
 ﻿// Licensed to the.NET Foundation under one or more agreements.
 // The.NET Foundation licenses this file to you under the MIT license.
 
-using System.Diagnostics;
 using System.Numerics;
 using Lab1.Lib.Helpers;
 
@@ -108,7 +107,7 @@ public class Camera
         OnChange();
     }
 
-    public Vector2 ProjectToScreen(Vector3 world)
+    public Vector3 ProjectToScreen(Vector3 world)
     {
         Vector4 result = Vector4.Transform(
             Vector4.Transform(
@@ -119,7 +118,7 @@ public class Camera
         );
         result /= result.W;
         result = Vector4.Transform(result, Viewport);
-        return new Vector2(result.X, result.Y);
+        return new Vector3(result.X, result.Y, result.Z);
     }
 
     public bool IsInView(Vector3 world)

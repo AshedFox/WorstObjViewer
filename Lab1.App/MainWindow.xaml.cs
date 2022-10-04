@@ -136,7 +136,7 @@ public partial class MainWindow : Window
         OpenFileDialog openFileDialog = new() { Filter = "Obj files (*.obj)|*.obj" };
         if (openFileDialog.ShowDialog() == true)
         {
-            SceneManager.Model = ObjParser.FromObjFile(File.ReadAllLines(openFileDialog.FileName));
+            SceneManager.ChangeModel(ObjParser.FromObjFile(File.ReadAllLines(openFileDialog.FileName)));
             SceneManager.MainCamera.Reset();
         }
     }
