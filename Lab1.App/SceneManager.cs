@@ -22,8 +22,9 @@ public class SceneManager
 
     private byte[] _pixels = Array.Empty<byte>();
     private float[] _zBuffer = Array.Empty<float>();
+    private SpinLock[] _locks = Array.Empty<SpinLock>();
     private readonly SemaphoreSlim _semaphore = new(1, 1);
-    private readonly Vector3 _lightVector = new(0.5f, 0.5f, 1f);
+    private readonly Vector3 _lightVector = Vector3.Normalize(new Vector3(-1f, -1f, -1f));
     private Dictionary<long, long> _renders = new();
 
     public delegate void ChangeHandler();
@@ -50,6 +51,7 @@ public class SceneManager
         _renders = new Dictionary<long, long>();
         _pixels = Array.Empty<byte>();
         _zBuffer = Array.Empty<float>();
+        _locks = Array.Empty<SpinLock>();
 
         ViewportWidth = width;
         ViewportHeight = height;
@@ -67,6 +69,7 @@ public class SceneManager
         _renders = new Dictionary<long, long>();
         _pixels = Array.Empty<byte>();
         _zBuffer = Array.Empty<float>();
+        _locks = Array.Empty<SpinLock>();
 
         Model = model;
         MainCamera.Reset();
@@ -102,7 +105,7 @@ public class SceneManager
                     return;
                 }
 
-                CancellationTokenSource? cancelSource = new CancellationTokenSource();
+                CancellationTokenSource cancelSource = new();
 
                 var bytesPerPixel = bitmap.Format.BitsPerPixel / 8;
                 var size = ViewportHeight * ViewportWidth * bytesPerPixel;
@@ -123,7 +126,12 @@ public class SceneManager
 
                 Array.Fill(_zBuffer, 0);
 
-                cancelSource.CancelAfter(1000);
+                if (_locks.Length != ViewportHeight * ViewportWidth)
+                {
+                    Array.Resize(ref _locks, ViewportHeight * ViewportWidth);
+                }
+
+                //cancelSource.CancelAfter(1000);
 
                 await Task.Run(() =>
                 {
@@ -134,25 +142,28 @@ public class SceneManager
                         new ParallelOptions() { MaxDegreeOfParallelism = Environment.ProcessorCount - 1 },
                         (polygon) =>
                         {
-                            if (cancelSource.IsCancellationRequested || polygon.TrueForAll((p) =>
-                                    !camera.IsInView(model.WorldVertices[p.VertexIndex - 1])))
+                            if (cancelSource.IsCancellationRequested)
                             {
                                 return;
                             }
 
-                            Vector3 n = model.WorldVertices[polygon[0].VertexIndex - 1];
+                            Vector3 v1 = model.WorldVertices[polygon[0].VertexIndex - 1];
+                            Vector3 v2 = model.WorldVertices[polygon[1].VertexIndex - 1];
+                            Vector3 v3 = model.WorldVertices[polygon[2].VertexIndex - 1];
+                            Vector3 a1 = new(v2.X - v1.X, v2.Y - v1.Y, v2.Z - v1.Z);
+                            Vector3 a2 = new(v2.X - v3.X, v2.Y - v3.Y, v2.Z - v3.Z);
 
-                            for (var i = 1; i < polygon.Count; i++)
+                            Vector3 n = Vector3.Normalize(Vector3.Cross(a1, a2));
+
+                            if (Vector3.Dot(n, Vector3.Normalize(-camera.Pivot.Position)) < 0)
                             {
-                                Vector3.Cross(n, model.WorldVertices[polygon[i].VertexIndex - 1]);
-                                n = Vector3.Normalize(n);
+                                return;
                             }
-
-                            n = Vector3.Normalize(n);
 
                             var intensity = Math.Clamp(Vector3.Dot(n, _lightVector), 0, 1);
 
-                            GraphicsProcessor.DrawPolygon(ref _pixels, ref _zBuffer, ref polygon, ref screenVertices,
+                            GraphicsProcessor.DrawPolygon(ref _pixels, ref _zBuffer, ref _locks, ref polygon,
+                                ref screenVertices,
                                 rect.Width, rect.Height, intensity
                             );
                         }

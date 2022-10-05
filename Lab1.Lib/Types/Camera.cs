@@ -131,7 +131,7 @@ public class Camera
             Projection
         );
         result /= result.W;
-        return Math.Abs(result.X) <= 1 && Math.Abs(result.Y) <= 1 && Math.Abs(result.Z) <= 1;
+        return Math.Abs(result.X) <= 1 && Math.Abs(result.Y) <= 1 && result.Z is > 0 and < 1;
     }
 
     public void Reset()

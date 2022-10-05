@@ -42,7 +42,8 @@ public static class GraphicsProcessor
     }
 
 
-    public static void DrawPolygon(ref byte[] pixels, ref float[] zBuffer, ref List<Model.PolygonPoint> polygonPoints,
+    public static void DrawPolygon(ref byte[] pixels, ref float[] zBuffer, ref SpinLock[] locks,
+        ref List<Model.PolygonPoint> polygonPoints,
         ref Vector3[] vertices, int width, int height, float intensity)
     {
         if (polygonPoints.Count <= 2)
@@ -75,11 +76,12 @@ public static class GraphicsProcessor
 
         for (var y = minY; y <= maxY; y++)
         {
-            List<Vector3> ends = new();
+            Vector3[] ends = new Vector3[2];
+            var index = 0;
 
             foreach ((Vector3 v1, Vector3 v2) edge in edges)
             {
-                if (ends.Count >= 2)
+                if (index == 2)
                 {
                     break;
                 }
@@ -88,34 +90,42 @@ public static class GraphicsProcessor
                 {
                     var phi = (y - edge.v1.Y) / (edge.v2.Y - edge.v1.Y);
                     Vector3 v = edge.v1 + (edge.v2 - edge.v1) * phi;
-                    ends.Add(v with { Y = y });
+                    ends[index++] = v with { Y = y };
                 }
             }
 
-            if (ends.Count >= 2)
+
+            if (ends[0].X > ends[1].X)
             {
-                if (ends[0].X > ends[1].X)
-                {
-                    (ends[0], ends[1]) = (ends[1], ends[0]);
-                }
+                (ends[0], ends[1]) = (ends[1], ends[0]);
+            }
 
-                for (var x = ends[0].X; x < ends[1].X; x++)
+            for (var x = ends[0].X; x < ends[1].X; x++)
+            {
+                if (x > 0 && x < width && y > 0 && y < height)
                 {
-                    if (x >= 0 && x < width && y > 0 && y < height)
+                    var phi = (x - ends[0].X) / (ends[1].X - ends[0].X);
+                    Vector3 v = ends[0] + (ends[1] - ends[0]) * phi;
+                    var offset = (int)(x + ends[0].Y * width);
+
+                    if (offset >= 0 && offset < zBuffer.Length && offset < pixels.Length && offset < locks.Length)
                     {
-                        var phi = (x - ends[0].X) / (ends[1].X - ends[0].X);
-                        Vector3 v = ends[0] + (ends[1] - ends[0]) * phi;
-                        var offset = (int)(x + ends[0].Y * width);
-
-                        if (offset > 0 && offset < zBuffer.Length && (v.Z < zBuffer[offset] || zBuffer[offset] == 0))
+                        var lockTaken = false;
+                        try
                         {
-                            zBuffer[offset] = v.Z;
-                            pixels[offset] = (byte)(intensity * 255);
-                            //var index = 3 * offset;
-
-                            //pixels[index] = (byte)(intensity * 255);
-                            //pixels[index + 1] = (byte)(intensity * 255);
-                            //pixels[index + 2] = (byte)(intensity * 255);
+                            locks[offset].Enter(ref lockTaken);
+                            if (v.Z < zBuffer[offset] || zBuffer[offset] == 0)
+                            {
+                                zBuffer[offset] = v.Z;
+                                pixels[offset] = (byte)(intensity * 255);
+                            }
+                        }
+                        finally
+                        {
+                            if (lockTaken)
+                            {
+                                locks[offset].Exit();
+                            }
                         }
                     }
                 }
