@@ -16,6 +16,13 @@
                 <MenuItem Name="OpenFileMenuItem" Header="Файл" Click="OpenFileMenuItem_OnClick" />
                 <MenuItem Name="ResetCameraMenuItem" Header="Сбросить положение камеры"
                           Click="ResetCameraMenuItem_OnClick" />
+                <MenuItem Header="Параметры">
+                    <MenuItem Header="Затенение">
+                        <MenuItem Name="ShadowNoneMenuItem" Header="Нет" Click="ShadowNoneMenuItem_OnClick" />
+                        <MenuItem Name="ShadowLambertMenuItem" Header="Ламберт" Click="ShadowLambertMenuItem_OnClick" />
+                        <MenuItem Name="ShadowPhongMenuItem" Header="Фонг" Click="ShadowPhongMenuItem_OnClick" />
+                    </MenuItem>
+                </MenuItem>
             </Menu>
         </DockPanel>
         <Grid Grid.Row="1">

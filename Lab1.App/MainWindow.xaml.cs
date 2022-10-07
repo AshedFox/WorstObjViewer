@@ -9,6 +9,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Lab1.Lib.Enums;
 using Lab1.Lib.Helpers;
 using Lab1.Lib.Types;
 using Microsoft.Win32;
@@ -41,7 +42,7 @@ public partial class MainWindow : Window
     public SceneManager SceneManager { get; } = SceneManager.Instance;
 
     public Vector2 TempPoint { get; set; }
-    public bool IsMoving { get; set; } = false;
+    public bool IsMoving { get; set; }
 
     private void ModelCanvas_OnMouseMove(object sender, MouseEventArgs e)
     {
@@ -165,4 +166,13 @@ public partial class MainWindow : Window
             IsMoving = false;
         }
     }
+
+    private void ShadowNoneMenuItem_OnClick(object sender, RoutedEventArgs e) =>
+        SceneManager.ChangeShadow(ShadowType.None);
+
+    private void ShadowLambertMenuItem_OnClick(object sender, RoutedEventArgs e) =>
+        SceneManager.ChangeShadow(ShadowType.Lambert);
+
+    private void ShadowPhongMenuItem_OnClick(object sender, RoutedEventArgs e) =>
+        SceneManager.ChangeShadow(ShadowType.Phong);
 }

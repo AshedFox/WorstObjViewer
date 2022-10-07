@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Numerics;
 using System.Threading;
@@ -11,6 +12,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Lab1.Lib.Enums;
 using Lab1.Lib.Helpers;
 using Lab1.Lib.Types;
 
@@ -41,6 +43,7 @@ public class SceneManager
 
     public int ViewportWidth { get; private set; }
     public int ViewportHeight { get; private set; }
+    public ShadowType ShadowType { get; private set; }
 
     private SceneManager()
     {
@@ -57,11 +60,19 @@ public class SceneManager
         ViewportHeight = height;
         WriteableBitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Gray8, null);
         MainCamera = new Camera(width, height, 80.0f, GraphicsProcessor.ConvertDegreesToRadians(45),
-            .1f, 1000.0f
+            .1f, 200.0f
         );
+        ShadowType = ShadowType.Lambert;
         MainCamera.Change += Redraw;
 
-        OnChange();
+        Redraw();
+    }
+
+    public void ChangeShadow(ShadowType shadowType)
+    {
+        ShadowType = shadowType;
+
+        Redraw();
     }
 
     public void ChangeModel(Model model)
@@ -74,7 +85,7 @@ public class SceneManager
         Model = model;
         MainCamera.Reset();
 
-        OnChange();
+        Redraw();
     }
 
     public void Resize(int width, int height)
@@ -95,7 +106,10 @@ public class SceneManager
             if (Model is { } model && MainCamera is { } camera && WriteableBitmap is { } bitmap)
             {
                 var time = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-                _renders.Add(time, time);
+                if (!_renders.TryAdd(time, time))
+                {
+                    return;
+                }
 
                 await _semaphore.WaitAsync();
 
@@ -131,12 +145,11 @@ public class SceneManager
                     Array.Resize(ref _locks, ViewportHeight * ViewportWidth);
                 }
 
-                //cancelSource.CancelAfter(1000);
+                cancelSource.CancelAfter(1000);
 
                 await Task.Run(() =>
                 {
-                    Vector3[] screenVertices =
-                        model.WorldVertices.Select((v) => camera.ProjectToScreen(v)).ToArray();
+                    Vector3[] screenVertices = model.WorldVertices.Select((v) => camera.ProjectToScreen(v)).ToArray();
 
                     Parallel.ForEach(model.Polygons,
                         new ParallelOptions() { MaxDegreeOfParallelism = Environment.ProcessorCount - 1 },
@@ -147,38 +160,22 @@ public class SceneManager
                                 return;
                             }
 
-                            Vector3 v1 = model.WorldVertices[polygon[0].VertexIndex - 1];
-                            Vector3 v2 = model.WorldVertices[polygon[1].VertexIndex - 1];
-                            Vector3 v3 = model.WorldVertices[polygon[2].VertexIndex - 1];
-                            Vector3 a1 = new(v2.X - v1.X, v2.Y - v1.Y, v2.Z - v1.Z);
-                            Vector3 a2 = new(v2.X - v3.X, v2.Y - v3.Y, v2.Z - v3.Z);
-
-                            Vector3 n = Vector3.Normalize(Vector3.Cross(a1, a2));
-
-                            if (Vector3.Dot(n, Vector3.Normalize(-camera.Pivot.Position)) < 0)
-                            {
-                                return;
-                            }
-
-                            var intensity = Math.Clamp(Vector3.Dot(n, _lightVector), 0, 1);
-
                             GraphicsProcessor.DrawPolygon(ref _pixels, ref _zBuffer, ref _locks, ref polygon,
-                                ref screenVertices,
-                                rect.Width, rect.Height, intensity
+                                ref screenVertices, ref model, ref camera, _lightVector, ShadowType
                             );
                         }
                     );
                 }, cancelSource.Token);
 
-                bitmap.WritePixels(rect, _pixels, rect.Width * bytesPerPixel, 0);
-
                 foreach (KeyValuePair<long, long> render in _renders)
                 {
-                    if (render.Value <= time)
+                    if (render.Value < DateTimeOffset.Now.ToUnixTimeMilliseconds() - 5)
                     {
                         _renders.Remove(render.Key);
                     }
                 }
+
+                bitmap.WritePixels(rect, _pixels, rect.Width * bytesPerPixel, 0);
 
                 _semaphore.Release();
             }

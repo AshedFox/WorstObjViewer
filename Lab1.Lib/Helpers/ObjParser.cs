@@ -39,14 +39,14 @@ public static class ObjParser
         };
     }
 
-    private static List<Model.PolygonPoint> ParseF(string line)
+    private static List<Polygon.Point> ParseF(string line)
     {
-        List<Model.PolygonPoint> result = new();
+        List<Polygon.Point> result = new();
         var values = line.Split(' ').Skip(1).ToArray();
         foreach (var value in values)
         {
             var subValues = value.Split('/').Take(3).ToArray();
-            Model.PolygonPoint polyPoint = new() { VertexIndex = int.Parse(subValues[0]) };
+            Polygon.Point polyPoint = new() { VertexIndex = int.Parse(subValues[0]) };
 
             if (subValues.ElementAtOrDefault(1) is { Length: > 0 } textureIndex)
             {
@@ -69,7 +69,7 @@ public static class ObjParser
         List<Vector3> vertices = new();
         List<Vector3> texturesVertices = new();
         List<Vector3> normals = new();
-        List<List<Model.PolygonPoint>> polygons = new();
+        List<Polygon> polygons = new();
 
         foreach (var line in lines)
         {
@@ -87,7 +87,7 @@ public static class ObjParser
             }
             else if (line.StartsWith("f "))
             {
-                polygons.Add(ParseF(line));
+                polygons.Add(new Polygon(ParseF(line)));
             }
         }
 

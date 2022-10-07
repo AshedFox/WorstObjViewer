@@ -5,30 +5,23 @@ namespace Lab1.Lib.Types;
 
 public class Model
 {
-    public class PolygonPoint
-    {
-        public int VertexIndex { get; set; }
-        public int? TextureIndex { get; set; }
-        public int? NormalIndex { get; set; }
-    }
-
-    public Model(List<Vector3> vertices, List<Vector3> texturesVertices, List<Vector3> normals,
-        List<List<PolygonPoint>> polygons)
+    public Model(IEnumerable<Vector3> vertices, IEnumerable<Vector3> texturesVertices, IEnumerable<Vector3> normals,
+        IEnumerable<Polygon> polygons)
     {
         Pivot = Pivot.CreateBasePivot(Vector3.Zero);
-        //Pivot.Scale(new Vector3(0.2f, 0.2f, 0.2f));
-        LocalVertices = vertices;
-        WorldVertices = vertices.Select(v => Pivot.ToWorldCoords(v)).ToList();
-        TexturesVertices = texturesVertices;
-        Normals = normals;
-        Polygons = polygons;
+
+        LocalVertices = vertices.ToArray();
+        WorldVertices = LocalVertices.Select(v => Pivot.ToWorldCoords(v)).ToArray();
+        TexturesVertices = texturesVertices.ToArray();
+        Normals = normals.ToArray();
+        Polygons = polygons.ToArray();
     }
 
     public Pivot Pivot { get; set; }
 
-    public List<Vector3> LocalVertices { get; }
-    public List<Vector3> WorldVertices { get; }
-    public List<Vector3> TexturesVertices { get; }
-    public List<Vector3> Normals { get; }
-    public List<List<PolygonPoint>> Polygons { get; }
+    public Vector3[] LocalVertices { get; }
+    public Vector3[] WorldVertices { get; }
+    public Vector3[] TexturesVertices { get; }
+    public Vector3[] Normals { get; }
+    public Polygon[] Polygons { get; }
 }
