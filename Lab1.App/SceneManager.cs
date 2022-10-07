@@ -14,6 +14,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Lab1.Lib.Enums;
 using Lab1.Lib.Helpers;
+using Lab1.Lib.Interfaces;
 using Lab1.Lib.Types;
 
 namespace Lab1.App;
@@ -58,7 +59,7 @@ public class SceneManager
 
         ViewportWidth = width;
         ViewportHeight = height;
-        WriteableBitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Gray8, null);
+        WriteableBitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Rgb24, null);
         MainCamera = new Camera(width, height, 80.0f, GraphicsProcessor.ConvertDegreesToRadians(45),
             .1f, 200.0f
         );
@@ -92,7 +93,7 @@ public class SceneManager
     {
         ViewportWidth = width;
         ViewportHeight = height;
-        WriteableBitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Gray8, null);
+        WriteableBitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Rgb24, null);
         MainCamera.ViewportWidth = width;
         MainCamera.ViewportHeight = height;
 
@@ -160,8 +161,28 @@ public class SceneManager
                                 return;
                             }
 
+                            IShadowProcessor? shadowProcessor;
+
+                            switch (ShadowType)
+                            {
+                                case ShadowType.None:
+                                    shadowProcessor = null;
+                                    break;
+                                case ShadowType.Lambert:
+                                    shadowProcessor = new LambertShadowProcessor();
+                                    break;
+                                case ShadowType.PhongShadow:
+                                    shadowProcessor = new PhongShadowProcessor();
+                                    break;
+                                case ShadowType.PhongLight:
+                                    shadowProcessor = new PhongLightProcessor(0.05f, 0.7f, 0.5f, 5);
+                                    break;
+                                default:
+                                    throw new ArgumentOutOfRangeException();
+                            }
+
                             GraphicsProcessor.DrawPolygon(ref _pixels, ref _zBuffer, ref _locks, ref polygon,
-                                ref screenVertices, ref model, ref camera, _lightVector, ShadowType
+                                ref screenVertices, ref model, ref camera, shadowProcessor, _lightVector
                             );
                         }
                     );

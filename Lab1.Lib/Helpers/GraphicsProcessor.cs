@@ -1,5 +1,6 @@
 ﻿using System.Numerics;
 using Lab1.Lib.Enums;
+using Lab1.Lib.Interfaces;
 using Lab1.Lib.Types;
 
 namespace Lab1.Lib.Helpers;
@@ -43,7 +44,7 @@ public static class GraphicsProcessor
     }
 
     private static void FillPixelWithScanline(ref byte[] pixels, ref float[] zBuffer, ref SpinLock[] locks,
-        ref (Vector3 v, Vector3 n)[] scanline, float x, float y, int width, byte color, bool invisible = false)
+        ref (Vector3 v, Vector3 n)[] scanline, float x, float y, int width, Color color)
     {
         var phi = (x - scanline[0].v.X) / (scanline[1].v.X - scanline[0].v.X);
         Vector3 v = scanline[0].v + (scanline[1].v - scanline[0].v) * phi;
@@ -58,10 +59,9 @@ public static class GraphicsProcessor
                 if (v.Z < zBuffer[offset] || zBuffer[offset] == 0)
                 {
                     zBuffer[offset] = v.Z;
-                    if (!invisible)
-                    {
-                        pixels[offset] = color;
-                    }
+                    pixels[3 * offset] = color.Red;
+                    pixels[3 * offset + 1] = color.Green;
+                    pixels[3 * offset + 2] = color.Blue;
                 }
             }
             finally
@@ -84,8 +84,8 @@ public static class GraphicsProcessor
     }
 
     public static void DrawPolygon(ref byte[] pixels, ref float[] zBuffer, ref SpinLock[] locks, ref Polygon polygon,
-        ref Vector3[] screenVertices, ref Model model, ref Camera camera, Vector3 light = default,
-        ShadowType shadowType = ShadowType.None)
+        ref Vector3[] screenVertices, ref Model model, ref Camera camera, IShadowProcessor? shadowProcessor,
+        Vector3 light)
     {
         if (polygon.Points.Length <= 2)
         {
@@ -93,8 +93,11 @@ public static class GraphicsProcessor
         }
 
         Vector3 normal = FindPolygonNormal(ref polygon, ref model);
+        Vector3 view = Vector3.Normalize(
+            model.WorldVertices[polygon.Points[0].VertexIndex - 1] - camera.Pivot.Position
+        );
 
-        if (Vector3.Dot(normal, model.WorldVertices[polygon.Points[0].VertexIndex - 1] - camera.Pivot.Position) <= 0)
+        if (Vector3.Dot(normal, view) <= 0)
         {
             return;
         }
@@ -102,7 +105,7 @@ public static class GraphicsProcessor
         var minY = (int)Math.Round(screenVertices[polygon.Points[0].VertexIndex - 1].Y);
         var maxY = (int)Math.Round(screenVertices[polygon.Points[0].VertexIndex - 1].Y);
 
-        List<(Vector3 v1, Vector3 v2, Vector3 n1, Vector3 n2)> edges = new();
+        Edge[] edges = new Edge[polygon.Points.Length];
 
         for (var i = 0; i < polygon.Points.Length; i++)
         {
@@ -121,7 +124,7 @@ public static class GraphicsProcessor
                 maxY = (int)Math.Round(vertex1.Y);
             }
 
-            edges.Add((vertex1, vertex2, normal1, normal2));
+            edges[i] = new Edge() { Vertex1 = vertex1, Vertex2 = vertex2, Normal1 = normal1, Normal2 = normal2 };
         }
 
         (Vector3 v, Vector3 n)[] ends = new (Vector3 v, Vector3 n)[2];
@@ -131,18 +134,18 @@ public static class GraphicsProcessor
             Array.Clear(ends);
             var index = 0;
 
-            foreach ((Vector3 v1, Vector3 v2, Vector3 n1, Vector3 n2) edge in edges)
+            foreach (Edge edge in edges)
             {
                 if (index == 2)
                 {
                     break;
                 }
 
-                if (IsIntersect(y, edge.v1.Y, edge.v2.Y))
+                if (IsIntersect(y, edge.Vertex1.Y, edge.Vertex2.Y))
                 {
-                    var phi = (y - edge.v1.Y) / (edge.v2.Y - edge.v1.Y);
-                    Vector3 v = edge.v1 + (edge.v2 - edge.v1) * phi;
-                    Vector3 n = Vector3.Normalize(edge.n1 + phi * (edge.n2 - edge.n1));
+                    var phi = (y - edge.Vertex1.Y) / (edge.Vertex2.Y - edge.Vertex1.Y);
+                    Vector3 v = edge.Vertex1 + (edge.Vertex2 - edge.Vertex1) * phi;
+                    Vector3 n = Vector3.Normalize(edge.Normal1 + phi * (edge.Normal2 - edge.Normal1));
 
                     ends[index++] = (v with { Y = y }, n);
                 }
@@ -153,51 +156,67 @@ public static class GraphicsProcessor
                 (ends[0], ends[1]) = (ends[1], ends[0]);
             }
 
-            float intensity;
-            switch (shadowType)
+            switch (shadowProcessor)
             {
-                case ShadowType.None:
+                case null:
                     for (var x = ends[0].v.X; x < ends[1].v.X; x++)
                     {
                         if (x > 0 && x < camera.ViewportWidth && y > 0 && y < camera.ViewportHeight)
                         {
                             FillPixelWithScanline(ref pixels, ref zBuffer, ref locks, ref ends, x, y,
-                                camera.ViewportWidth, 255);
+                                camera.ViewportWidth, new Color(255));
                         }
                     }
 
                     break;
-                case ShadowType.Lambert:
-                    intensity = Math.Clamp(Vector3.Dot(normal, light), 0, 1);
+                case LambertShadowProcessor lambertShadowProcessor:
+                    lambertShadowProcessor.ChangeIntensity(light, normal);
 
                     for (var x = ends[0].v.X; x < ends[1].v.X; x++)
                     {
                         if (x > 0 && x < camera.ViewportWidth && y > 0 && y < camera.ViewportHeight)
                         {
                             FillPixelWithScanline(ref pixels, ref zBuffer, ref locks, ref ends, x, y,
-                                camera.ViewportWidth, (byte)(255 * intensity));
+                                camera.ViewportWidth, lambertShadowProcessor.TransformColor(new Color(255))
+                            );
                         }
                     }
 
                     break;
-                case ShadowType.Phong:
+                case PhongShadowProcessor phongShadowProcessor:
                     for (var x = ends[0].v.X; x < ends[1].v.X; x++)
                     {
                         if (x > 0 && x < camera.ViewportWidth && y > 0 && y < camera.ViewportHeight)
                         {
-                            var phi = (x - ends[0].v.X) / (ends[1].v.X - ends[0].v.X);
-                            Vector3 n = -Vector3.Normalize(ends[0].n + (ends[1].n - ends[0].n) * phi);
-                            intensity = Math.Clamp(Vector3.Dot(n, light), 0, 1);
+                            phongShadowProcessor.ChangeIntensity(ends[0].v.X, ends[1].v.X, x, ends[0].n,
+                                ends[1].n, light
+                            );
 
                             FillPixelWithScanline(ref pixels, ref zBuffer, ref locks, ref ends, x, y,
-                                camera.ViewportWidth, (byte)(255 * intensity));
+                                camera.ViewportWidth, phongShadowProcessor.TransformColor(new Color(255))
+                            );
                         }
                     }
 
+                    break;
+                case PhongLightProcessor phongLightProcessor:
+                    for (var x = ends[0].v.X; x < ends[1].v.X; x++)
+                    {
+                        if (x > 0 && x < camera.ViewportWidth && y > 0 && y < camera.ViewportHeight)
+                        {
+                            phongLightProcessor.Change(ends[0].v.X, ends[1].v.X, x, ends[0].n,
+                                ends[1].n, light, view
+                            );
+
+                            FillPixelWithScanline(ref pixels, ref zBuffer, ref locks, ref ends, x, y,
+                                camera.ViewportWidth, phongLightProcessor.TransformColor(new Color(255))
+                            );
+                        }
+                    }
 
                     break;
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(shadowType), shadowType, null);
+                    throw new ArgumentOutOfRangeException(nameof(shadowProcessor));
             }
         }
     }

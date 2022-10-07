@@ -174,5 +174,8 @@ public partial class MainWindow : Window
         SceneManager.ChangeShadow(ShadowType.Lambert);
 
     private void ShadowPhongMenuItem_OnClick(object sender, RoutedEventArgs e) =>
-        SceneManager.ChangeShadow(ShadowType.Phong);
+        SceneManager.ChangeShadow(ShadowType.PhongShadow);
+
+    private void LightPhongMenuItem_OnClick(object sender, RoutedEventArgs e) =>
+        SceneManager.ChangeShadow(ShadowType.PhongLight);
 }

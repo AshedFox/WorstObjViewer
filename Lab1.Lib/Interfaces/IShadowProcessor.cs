@@ -1,12 +1,11 @@
 ﻿// Licensed to the.NET Foundation under one or more agreements.
 // The.NET Foundation licenses this file to you under the MIT license.
 
-namespace Lab1.Lib.Enums;
+using Lab1.Lib.Types;
 
-public enum ShadowType
+namespace Lab1.Lib.Interfaces;
+
+public interface IShadowProcessor
 {
-    None,
-    Lambert,
-    PhongShadow,
-    PhongLight
+    public Color TransformColor(Color baseColor);
 }

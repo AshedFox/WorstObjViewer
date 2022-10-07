@@ -20,7 +20,9 @@
                     <MenuItem Header="Затенение">
                         <MenuItem Name="ShadowNoneMenuItem" Header="Нет" Click="ShadowNoneMenuItem_OnClick" />
                         <MenuItem Name="ShadowLambertMenuItem" Header="Ламберт" Click="ShadowLambertMenuItem_OnClick" />
-                        <MenuItem Name="ShadowPhongMenuItem" Header="Фонг" Click="ShadowPhongMenuItem_OnClick" />
+                        <MenuItem Name="ShadowPhongMenuItem" Header="Фонг(затенение)"
+                                  Click="ShadowPhongMenuItem_OnClick" />
+                        <MenuItem Name="LightPhongMenuItem" Header="Фонг(освещение)" Click="LightPhongMenuItem_OnClick" />
                     </MenuItem>
                 </MenuItem>
             </Menu>

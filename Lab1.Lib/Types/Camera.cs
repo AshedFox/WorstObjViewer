@@ -8,8 +8,8 @@ namespace Lab1.Lib.Types;
 
 public class Camera
 {
-    private readonly float _minDistance = 2f;
-    private readonly float _maxDistance = 5000f;
+    private readonly float _minDistance = 5f;
+    private readonly float _maxDistance = 500f;
 
     public delegate void ChangeHandler();
 
