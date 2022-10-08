@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using System.Numerics;
 using Lab1.Lib.Types;
+using Lab1.Lib.Types.Primitives;
 
 namespace Lab1.Lib.Helpers;
 
@@ -8,7 +9,7 @@ public static class ObjParser
 {
     private static Vector3 ParseV(string line)
     {
-        var values = line.Split(' ').Skip(1).Take(3).ToArray();
+        var values = line.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).Take(3).ToArray();
         return new Vector3
         {
             X = float.Parse(values[0], NumberStyles.Any, CultureInfo.InvariantCulture),
@@ -17,20 +18,19 @@ public static class ObjParser
         };
     }
 
-    private static Vector3 ParseVt(string line)
+    private static Vector2 ParseVt(string line)
     {
-        var values = line.Split(' ').Skip(1).Take(3).ToArray();
-        return new Vector3
+        var values = line.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).Take(3).ToArray();
+        return new Vector2
         {
             X = float.Parse(values[0], NumberStyles.Any, CultureInfo.InvariantCulture),
-            Y = float.Parse(values.ElementAtOrDefault(1) ?? "0", NumberStyles.Any, CultureInfo.InvariantCulture),
-            Z = float.Parse(values.ElementAtOrDefault(2) ?? "0", NumberStyles.Any, CultureInfo.InvariantCulture)
+            Y = float.Parse(values.ElementAtOrDefault(1) ?? "0", NumberStyles.Any, CultureInfo.InvariantCulture)
         };
     }
 
     private static Vector3 ParseVn(string line)
     {
-        var values = line.Split(' ').Skip(1).Take(3).ToArray();
+        var values = line.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).Take(3).ToArray();
         return new Vector3
         {
             X = float.Parse(values[0], NumberStyles.Any, CultureInfo.InvariantCulture),
@@ -42,21 +42,16 @@ public static class ObjParser
     private static List<Polygon.Point> ParseF(string line)
     {
         List<Polygon.Point> result = new();
-        var values = line.Split(' ').Skip(1).ToArray();
+        var values = line.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).ToArray();
         foreach (var value in values)
         {
-            var subValues = value.Split('/').Take(3).ToArray();
-            Polygon.Point polyPoint = new() { VertexIndex = int.Parse(subValues[0]) };
-
-            if (subValues.ElementAtOrDefault(1) is { Length: > 0 } textureIndex)
+            var subValues = value.Split('/', StringSplitOptions.RemoveEmptyEntries).Take(3).ToArray();
+            Polygon.Point polyPoint = new()
             {
-                polyPoint.TextureIndex = int.Parse(textureIndex);
-            }
-
-            if (subValues.ElementAtOrDefault(2) is { Length: > 0 } normalIndex)
-            {
-                polyPoint.NormalIndex = int.Parse(normalIndex);
-            }
+                VertexIndex = int.Parse(subValues[0]),
+                TextureIndex = int.Parse(subValues[1]),
+                NormalIndex = int.Parse(subValues[2])
+            };
 
             result.Add(polyPoint);
         }
@@ -67,7 +62,7 @@ public static class ObjParser
     public static Model FromObjFile(IEnumerable<string> lines)
     {
         List<Vector3> vertices = new();
-        List<Vector3> texturesVertices = new();
+        List<Vector2> texturesVertices = new();
         List<Vector3> normals = new();
         List<Polygon> polygons = new();
 

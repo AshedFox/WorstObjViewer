@@ -3,7 +3,7 @@
 
 using Lab1.Lib.Types;
 
-namespace Lab1.Lib.Interfaces;
+namespace Lab1.Lib.Helpers.Shadow;
 
 public interface IShadowProcessor
 {

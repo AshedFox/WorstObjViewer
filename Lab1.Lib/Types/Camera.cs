@@ -3,19 +3,31 @@
 
 using System.Numerics;
 using Lab1.Lib.Helpers;
+using Lab1.Lib.Types.Primitives;
 
 namespace Lab1.Lib.Types;
 
 public class Camera
 {
-    private readonly float _minDistance = 5f;
-    private readonly float _maxDistance = 500f;
-
     public delegate void ChangeHandler();
 
-    public event ChangeHandler? Change;
+    private readonly float _maxDistance = 500f;
+    private readonly float _minDistance = 5f;
 
     private float _speed = 1.0f;
+
+    public Camera(int viewportWidth, int viewportHeight, float distance,
+        float fieldOfView, float nearPlane, float farPlane)
+    {
+        Pivot = Pivot.CreateBasePivot(new Vector3(0, 0, distance));
+        ViewportWidth = viewportWidth;
+        ViewportHeight = viewportHeight;
+        Distance = distance;
+        FieldOfView = fieldOfView;
+        NearPlane = nearPlane;
+        FarPlane = farPlane;
+    }
+
     public Pivot Pivot { get; set; }
     public int ViewportWidth { get; set; }
     public int ViewportHeight { get; set; }
@@ -46,17 +58,7 @@ public class Camera
     public Matrix4x4 Viewport =>
         GraphicsProcessor.CreateViewportMatrix(ViewportWidth, ViewportHeight, 0, 0);
 
-    public Camera(int viewportWidth, int viewportHeight, float distance,
-        float fieldOfView, float nearPlane, float farPlane)
-    {
-        Pivot = Pivot.CreateBasePivot(new Vector3(0, 0, distance));
-        ViewportWidth = viewportWidth;
-        ViewportHeight = viewportHeight;
-        Distance = distance;
-        FieldOfView = fieldOfView;
-        NearPlane = nearPlane;
-        FarPlane = farPlane;
-    }
+    public event ChangeHandler? Change;
 
     public void Move(Vector2 startPoint, Vector2 endPoint)
     {

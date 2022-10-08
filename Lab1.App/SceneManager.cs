@@ -3,8 +3,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Numerics;
 using System.Threading;
@@ -14,25 +12,28 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Lab1.Lib.Enums;
 using Lab1.Lib.Helpers;
-using Lab1.Lib.Interfaces;
+using Lab1.Lib.Helpers.Shadow;
 using Lab1.Lib.Types;
 
 namespace Lab1.App;
 
 public class SceneManager
 {
-    public static SceneManager Instance { get; } = new();
-
-    private byte[] _pixels = Array.Empty<byte>();
-    private float[] _zBuffer = Array.Empty<float>();
-    private SpinLock[] _locks = Array.Empty<SpinLock>();
-    private readonly SemaphoreSlim _semaphore = new(1, 1);
-    private readonly Vector3 _lightVector = Vector3.Normalize(new Vector3(-1f, -1f, -1f));
-    private Dictionary<long, long> _renders = new();
-
     public delegate void ChangeHandler();
 
-    public event ChangeHandler? ChangeEvent;
+    private readonly Vector3 _lightVector = Vector3.Normalize(new Vector3(-1f, -1f, -1f));
+    private readonly SemaphoreSlim _semaphore = new(1, 1);
+    private SpinLock[] _locks = Array.Empty<SpinLock>();
+
+    private byte[] _pixels = Array.Empty<byte>();
+    private Dictionary<long, long> _renders = new();
+    private float[] _zBuffer = Array.Empty<float>();
+
+    private SceneManager()
+    {
+    }
+
+    public static SceneManager Instance { get; } = new();
 
     public Camera MainCamera { get; private set; } = new(0, 0, 80.0f,
         GraphicsProcessor.ConvertDegreesToRadians(45), .1f, 1000.0f
@@ -46,9 +47,7 @@ public class SceneManager
     public int ViewportHeight { get; private set; }
     public ShadowType ShadowType { get; private set; }
 
-    private SceneManager()
-    {
-    }
+    public event ChangeHandler? ChangeEvent;
 
     public void Init(int width, int height)
     {
@@ -84,6 +83,7 @@ public class SceneManager
         _locks = Array.Empty<SpinLock>();
 
         Model = model;
+        Model.Change += Redraw;
         MainCamera.Reset();
 
         Redraw();
@@ -150,11 +150,11 @@ public class SceneManager
 
                 await Task.Run(() =>
                 {
-                    Vector3[] screenVertices = model.WorldVertices.Select((v) => camera.ProjectToScreen(v)).ToArray();
+                    Vector3[] screenVertices = model.WorldVertices.Select(v => camera.ProjectToScreen(v)).ToArray();
 
                     Parallel.ForEach(model.Polygons,
-                        new ParallelOptions() { MaxDegreeOfParallelism = Environment.ProcessorCount - 1 },
-                        (polygon) =>
+                        new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount - 1 },
+                        polygon =>
                         {
                             if (cancelSource.IsCancellationRequested)
                             {
@@ -175,7 +175,7 @@ public class SceneManager
                                     shadowProcessor = new PhongShadowProcessor();
                                     break;
                                 case ShadowType.PhongLight:
-                                    shadowProcessor = new PhongLightProcessor(0.05f, 0.7f, 0.5f, 5);
+                                    shadowProcessor = new PhongLightProcessor(0.05f, 0.7f, 0.5f, 20);
                                     break;
                                 default:
                                     throw new ArgumentOutOfRangeException();

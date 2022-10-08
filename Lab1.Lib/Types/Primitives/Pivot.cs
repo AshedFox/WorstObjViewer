@@ -2,12 +2,19 @@
 // The.NET Foundation licenses this file to you under the MIT license.
 
 using System.Numerics;
-using Lab1.Lib.Helpers;
 
-namespace Lab1.Lib.Types;
+namespace Lab1.Lib.Types.Primitives;
 
 public class Pivot
 {
+    public Pivot(Vector3 position, Vector3 xAxis, Vector3 yAxis, Vector3 zAxis)
+    {
+        Position = position;
+        XAxis = xAxis;
+        YAxis = yAxis;
+        ZAxis = zAxis;
+    }
+
     public Vector3 Position { get; set; }
     public Vector3 XAxis { get; set; }
     public Vector3 YAxis { get; set; }
@@ -26,14 +33,6 @@ public class Pivot
         ZAxis.X, ZAxis.Y, ZAxis.Z, 0,
         0, 0, 0, 1
     );
-
-    public Pivot(Vector3 position, Vector3 xAxis, Vector3 yAxis, Vector3 zAxis)
-    {
-        Position = position;
-        XAxis = xAxis;
-        YAxis = yAxis;
-        ZAxis = zAxis;
-    }
 
     public static Pivot CreateBasePivot(Vector3 center) => new(center, Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ);
 

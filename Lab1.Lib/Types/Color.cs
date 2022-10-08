@@ -5,23 +5,26 @@ namespace Lab1.Lib.Types;
 
 public struct Color
 {
-    public Color()
-    {
-        Red = 0;
-        Green = 0;
-        Blue = 0;
-    }
-
     public Color(byte value)
     {
         Red = value;
         Green = value;
         Blue = value;
+        Alpha = 255;
+    }
+
+    public Color(byte red, byte green, byte blue, byte alpha = 255)
+    {
+        Red = red;
+        Green = green;
+        Blue = blue;
+        Alpha = alpha;
     }
 
     public byte Red { get; set; }
     public byte Green { get; set; }
     public byte Blue { get; set; }
+    public byte Alpha { get; set; }
 
     public static Color operator *(Color color, float multiplier)
     {
@@ -31,6 +34,16 @@ public struct Color
 
         return color;
     }
+
+    public static Color operator /(Color color, float div)
+    {
+        color.Red = (byte)Math.Clamp(color.Red / div, 0, 255);
+        color.Green = (byte)Math.Clamp(color.Green / div, 0, 255);
+        color.Blue = (byte)Math.Clamp(color.Blue / div, 0, 255);
+
+        return color;
+    }
+
 
     public static Color operator +(Color color1, Color color2)
     {

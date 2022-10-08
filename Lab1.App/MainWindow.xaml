@@ -14,6 +14,14 @@
         <DockPanel>
             <Menu>
                 <MenuItem Name="OpenFileMenuItem" Header="Файл" Click="OpenFileMenuItem_OnClick" />
+                <MenuItem Header="Изменить">
+                    <MenuItem Name="DiffuseTextureMenuItem" Header="Диффузная карта"
+                              Click="DiffuseTextureMenuItem_OnClick" />
+                    <MenuItem Name="NormalTextureMenuItem" Header="Карта нормалей"
+                              Click="NormalTextureMenuItem_OnClick" />
+                    <MenuItem Name="SpecularTextureMenuItem" Header="Зеркальная карта"
+                              Click="SpecularTextureMenuItem_OnClick" />
+                </MenuItem>
                 <MenuItem Name="ResetCameraMenuItem" Header="Сбросить положение камеры"
                           Click="ResetCameraMenuItem_OnClick" />
                 <MenuItem Header="Параметры">

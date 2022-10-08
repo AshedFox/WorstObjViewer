@@ -1,17 +1,12 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Lab1.Lib.Enums;
 using Lab1.Lib.Helpers;
-using Lab1.Lib.Types;
+using Lab1.Lib.Types.Textures;
 using Microsoft.Win32;
 
 namespace Lab1.App;
@@ -178,4 +173,96 @@ public partial class MainWindow : Window
 
     private void LightPhongMenuItem_OnClick(object sender, RoutedEventArgs e) =>
         SceneManager.ChangeShadow(ShadowType.PhongLight);
+
+    private BitmapSource? ReadImage()
+    {
+        OpenFileDialog openFileDialog = new() { Filter = "Image (*.jpg;*.jpeg;*.png)|*.jpg;*.jpeg;*.png" };
+        if (openFileDialog.ShowDialog() == true)
+        {
+            MemoryStream memoryStream = new();
+
+            using (FileStream imageStreamSource = new(openFileDialog.FileName, FileMode.Open,
+                       FileAccess.Read, FileShare.Read)
+                  )
+            {
+                imageStreamSource.CopyTo(memoryStream);
+            }
+
+            memoryStream.Seek(0, SeekOrigin.Begin);
+
+            var ext = Path.GetExtension(openFileDialog.FileName);
+
+            if (ext == ".jpg" || ext == ".jpeg")
+            {
+                return BitmapDecoder.Create(memoryStream, BitmapCreateOptions.PreservePixelFormat,
+                    BitmapCacheOption.Default).Frames[0];
+            }
+
+            if (ext == ".png")
+            {
+                return BitmapDecoder.Create(memoryStream, BitmapCreateOptions.PreservePixelFormat,
+                    BitmapCacheOption.Default).Frames[0];
+            }
+        }
+
+        return null;
+    }
+
+    private void DiffuseTextureMenuItem_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (SceneManager.Model != null)
+        {
+            BitmapSource? bitmapSource = ReadImage();
+            if (bitmapSource is not null)
+            {
+                var width = bitmapSource.PixelWidth;
+                var height = bitmapSource.PixelHeight;
+                var bytesPerPixel = bitmapSource.Format.BitsPerPixel / 8;
+
+                var colors = new byte[width * height * bytesPerPixel];
+
+                bitmapSource.CopyPixels(colors, width * bytesPerPixel, 0);
+
+                SceneManager.Model.ChangeDiffuseTexture(new Texture(colors, width, height, bytesPerPixel));
+            }
+        }
+    }
+
+    private void NormalTextureMenuItem_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (SceneManager.Model != null)
+        {
+            BitmapSource? bitmapSource = ReadImage();
+            if (bitmapSource is not null)
+            {
+                var width = bitmapSource.PixelWidth;
+                var height = bitmapSource.PixelHeight;
+                var bytesPerPixel = bitmapSource.Format.BitsPerPixel / 8;
+
+                var colors = new byte[width * height * bytesPerPixel];
+                bitmapSource.CopyPixels(colors, width * bytesPerPixel, 0);
+
+                SceneManager.Model.ChangeNormalTexture(new NormalTexture(colors, width, height, bytesPerPixel));
+            }
+        }
+    }
+
+    private void SpecularTextureMenuItem_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (SceneManager.Model != null)
+        {
+            BitmapSource? bitmapSource = ReadImage();
+            if (bitmapSource is not null)
+            {
+                var width = bitmapSource.PixelWidth;
+                var height = bitmapSource.PixelHeight;
+                var bytesPerPixel = bitmapSource.Format.BitsPerPixel / 8;
+
+                var colors = new byte[width * height * bytesPerPixel];
+                bitmapSource.CopyPixels(colors, width * bytesPerPixel, 0);
+
+                SceneManager.Model.ChangeSpecularTexture(new Texture(colors, width, height, bytesPerPixel));
+            }
+        }
+    }
 }
