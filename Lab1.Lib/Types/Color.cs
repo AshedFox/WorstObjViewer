@@ -44,12 +44,20 @@ public struct Color
         return color;
     }
 
-
     public static Color operator +(Color color1, Color color2)
     {
         color1.Red = (byte)Math.Clamp(color1.Red + color2.Red, 0, 255);
         color1.Green = (byte)Math.Clamp(color1.Green + color2.Green, 0, 255);
         color1.Blue = (byte)Math.Clamp(color1.Blue + color2.Blue, 0, 255);
+
+        return color1;
+    }
+
+    public static Color operator -(Color color1, Color color2)
+    {
+        color1.Red = (byte)(color1.Red - color2.Red);
+        color1.Green = (byte)(color1.Green - color2.Green);
+        color1.Blue = (byte)(color1.Blue - color2.Blue);
 
         return color1;
     }

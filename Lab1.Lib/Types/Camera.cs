@@ -123,6 +123,44 @@ public class Camera
         return new Vector3(result.X, result.Y, result.Z);
     }
 
+    public Matrix4x4 Rotate(Matrix4x4 matrix)
+    {
+        matrix.M11 = matrix.M11 != 0 ? 1f / matrix.M11 : 0;
+        matrix.M12 = matrix.M12 != 0 ? 1f / matrix.M12 : 0;
+        matrix.M13 = matrix.M13 != 0 ? 1f / matrix.M13 : 0;
+        matrix.M14 = matrix.M14 != 0 ? 1f / matrix.M14 : 0;
+
+        matrix.M21 = matrix.M21 != 0 ? 1f / matrix.M21 : 0;
+        matrix.M22 = matrix.M22 != 0 ? 1f / matrix.M22 : 0;
+        matrix.M23 = matrix.M23 != 0 ? 1f / matrix.M23 : 0;
+        matrix.M24 = matrix.M24 != 0 ? 1f / matrix.M24 : 0;
+
+        matrix.M31 = matrix.M31 != 0 ? 1f / matrix.M31 : 0;
+        matrix.M32 = matrix.M32 != 0 ? 1f / matrix.M32 : 0;
+        matrix.M33 = matrix.M33 != 0 ? 1f / matrix.M33 : 0;
+        matrix.M34 = matrix.M34 != 0 ? 1f / matrix.M34 : 0;
+
+        matrix.M41 = matrix.M41 != 0 ? 1f / matrix.M41 : 0;
+        matrix.M42 = matrix.M42 != 0 ? 1f / matrix.M42 : 0;
+        matrix.M43 = matrix.M43 != 0 ? 1f / matrix.M43 : 0;
+        matrix.M44 = matrix.M44 != 0 ? 1f / matrix.M44 : 0;
+        return matrix;
+    }
+
+    public Vector3 ProjectFromScreen(Vector3 screen)
+    {
+        Matrix4x4.Invert(Viewport, out Matrix4x4 viewport);
+        Matrix4x4.Invert(Projection, out Matrix4x4 projection);
+        Matrix4x4.Invert(View, out Matrix4x4 view);
+
+        Vector4 result = Vector4.Transform(new Vector4(screen, 1), viewport);
+        result = Vector4.Transform(result, projection);
+        result = Vector4.Transform(result, view);
+        result /= result.W;
+
+        return new Vector3(result.X, result.Y, result.Z);
+    }
+
     public bool IsInView(Vector3 world)
     {
         Vector4 result = Vector4.Transform(

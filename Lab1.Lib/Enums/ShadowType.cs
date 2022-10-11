@@ -7,6 +7,7 @@ public enum ShadowType
 {
     None,
     Lambert,
+    Gouraud,
     PhongShadow,
     PhongLight
 }

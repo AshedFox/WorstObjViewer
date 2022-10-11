@@ -31,9 +31,9 @@ public class PhongLightProcessor : IShadowProcessor
 
     public void Change(Vector3 normal, Vector3 light, Vector3 view)
     {
-        Normal = normal;
-        Light = light;
-        View = view;
+        Normal = Vector3.Normalize(normal);
+        Light = Vector3.Normalize(light);
+        View = Vector3.Normalize(view);
     }
 
     private Color MakeAmbientLight(Color color)
@@ -47,7 +47,7 @@ public class PhongLightProcessor : IShadowProcessor
 
     private Color MakeDiffuseColor(Color color, Vector3 normal, Vector3 light)
     {
-        var dot = Math.Clamp(Vector3.Dot(normal, light), 0, 1);
+        var dot = Math.Max(Vector3.Dot(normal, light), 0);
 
         color.Red = (byte)(color.Red * DiffuseFactor * dot);
         color.Green = (byte)(color.Green * DiffuseFactor * dot);
@@ -58,8 +58,8 @@ public class PhongLightProcessor : IShadowProcessor
 
     private Color MakeSpecularLight(Color color, Vector3 normal, Vector3 light, Vector3 view)
     {
-        Vector3 reflected = Vector3.Reflect(light, normal);
-        var dot = Math.Clamp(Vector3.Dot(reflected, view), 0, 1);
+        Vector3 reflected = Vector3.Normalize(Vector3.Reflect(light, normal));
+        var dot = Math.Max(Vector3.Dot(reflected, view), 0);
         var pow = Math.Pow(dot, Shininess);
 
         color.Red = (byte)(color.Red * SpecularFactor * pow);

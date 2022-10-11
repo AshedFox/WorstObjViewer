@@ -14,6 +14,51 @@ public class Model
         Pivot = Pivot.CreateBasePivot(Vector3.Zero);
 
         LocalVertices = vertices.ToArray();
+
+        var minX = float.MaxValue;
+        var maxX = float.MinValue;
+        var minY = float.MaxValue;
+        var maxY = float.MinValue;
+        var minZ = float.MaxValue;
+        var maxZ = float.MinValue;
+
+        foreach (Vector3 localVertex in LocalVertices)
+        {
+            if (localVertex.X < minX)
+            {
+                minX = localVertex.X;
+            }
+
+            if (localVertex.X > maxX)
+            {
+                maxX = localVertex.X;
+            }
+
+            if (localVertex.Y < minY)
+            {
+                minY = localVertex.Y;
+            }
+
+            if (localVertex.Y > maxY)
+            {
+                maxY = localVertex.Y;
+            }
+
+            if (localVertex.Z < minZ)
+            {
+                minZ = localVertex.Z;
+            }
+
+            if (localVertex.Z > maxZ)
+            {
+                maxZ = localVertex.Z;
+            }
+        }
+
+        var scale = 40f / Math.Max(Math.Max(maxX - minX, maxY - minY), maxZ - minZ);
+
+        Pivot.Scale(new Vector3(scale));
+
         WorldVertices = LocalVertices.Select(v => Pivot.ToWorldCoords(v)).ToArray();
         TexturesVertices = texturesVertices.ToArray();
         Normals = normals.ToArray();

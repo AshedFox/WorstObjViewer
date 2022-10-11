@@ -50,7 +50,8 @@ public static class GraphicsProcessor
         Vector3 v = scanline[0].Vertex + (scanline[1].Vertex - scanline[0].Vertex) * phi;
         var offset = (int)(x + y * width);
 
-        if (offset >= 0 && offset < zBuffer.Length && offset < pixels.Length && offset < locks.Length)
+        if (offset >= 0 && offset < zBuffer.Length && offset < pixels.Length && offset < locks.Length &&
+            v.Z is > 0 and < 1)
         {
             var lockTaken = false;
             try
@@ -148,8 +149,21 @@ public static class GraphicsProcessor
 
             edges[i] = new Edge
             {
-                FullVertex1 = new FullVertex { Vertex = vertex1, Normal = normal1, Texture = texture1 },
-                FullVertex2 = new FullVertex { Vertex = vertex2, Normal = normal2, Texture = texture2 }
+                FullVertex1 =
+                    new FullVertex
+                    {
+                        Vertex = vertex1,
+                        Normal = normal1,
+                        Texture = texture1,
+                        Color = new Color(255) * Math.Clamp(Vector3.Dot(-normal1, light), 0, 1)
+                    },
+                FullVertex2 = new FullVertex
+                {
+                    Vertex = vertex2,
+                    Normal = normal2,
+                    Texture = texture2,
+                    Color = new Color(255) * Math.Clamp(Vector3.Dot(-normal2, light), 0, 1)
+                }
             };
         }
 
@@ -180,10 +194,20 @@ public static class GraphicsProcessor
                         edge.FullVertex1.Vertex.Z, edge.FullVertex2.Vertex.Z,
                         edge.FullVertex1.Vertex.Y, edge.FullVertex2.Vertex.Y, y
                     );
+                    Color c = edge.FullVertex1.Color;
+                    c.Red = (byte)Math.Clamp(c.Red + (edge.FullVertex2.Color.Red - edge.FullVertex1.Color.Red) * phi, 0,
+                        255);
+                    c.Green = (byte)Math.Clamp(
+                        c.Green + (edge.FullVertex2.Color.Green - edge.FullVertex1.Color.Green) * phi, 0, 255);
+                    c.Blue = (byte)Math.Clamp(
+                        c.Blue + (edge.FullVertex2.Color.Blue - edge.FullVertex1.Color.Blue) * phi, 0, 255);
+                    c.Alpha = (byte)Math.Clamp(
+                        c.Alpha + (edge.FullVertex2.Color.Alpha - edge.FullVertex1.Color.Alpha) * phi, 0, 255);
 
                     ends[index].Vertex = v;
                     ends[index].Normal = n;
                     ends[index].Texture = t;
+                    ends[index].Color = c;
                     index++;
                 }
             }
@@ -243,6 +267,31 @@ public static class GraphicsProcessor
                     }
 
                     break;
+                case GurouShadowProcessor:
+                    for (var x = ends[0].Vertex.X; x < ends[1].Vertex.X; x++)
+                    {
+                        if (x > 0 && x < camera.ViewportWidth && y > 0 && y < camera.ViewportHeight)
+                        {
+                            var phi = (x - ends[0].Vertex.X) / (ends[1].Vertex.X - ends[0].Vertex.X);
+                            Color color = ends[0].Color;
+                            color.Red = (byte)Math.Clamp(color.Red + (ends[1].Color.Red - ends[0].Color.Red) * phi, 0,
+                                255);
+                            color.Green =
+                                (byte)Math.Clamp(color.Green + (ends[1].Color.Green - ends[0].Color.Green) * phi, 0,
+                                    255);
+                            color.Blue = (byte)Math.Clamp(color.Blue + (ends[1].Color.Blue - ends[0].Color.Blue) * phi,
+                                0, 255);
+                            color.Alpha =
+                                (byte)Math.Clamp(color.Alpha + (ends[1].Color.Alpha - ends[0].Color.Alpha) * phi, 0,
+                                    255);
+
+                            FillPixelWithScanline(ref pixels, ref zBuffer, ref locks, ref ends, x, y,
+                                camera.ViewportWidth, color
+                            );
+                        }
+                    }
+
+                    break;
                 case PhongShadowProcessor phongShadowProcessor:
                     for (var x = ends[0].Vertex.X; x < ends[1].Vertex.X; x++)
                     {
@@ -286,6 +335,9 @@ public static class GraphicsProcessor
                         {
                             Vector3 n = InterpolateNormal(ends[0].Normal, ends[1].Normal,
                                 ends[0].Vertex.X, ends[1].Vertex.X, x
+                            );
+                            view = Vector3.Normalize(
+                                camera.ProjectFromScreen(new Vector3(x, y, 1)) - camera.Pivot.Position
                             );
 
                             if (model.DiffuseTexture is not null || model.NormalTexture is not null ||

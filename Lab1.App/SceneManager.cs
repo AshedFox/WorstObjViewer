@@ -2,6 +2,7 @@
 // The.NET Foundation licenses this file to you under the MIT license.
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
@@ -36,7 +37,7 @@ public class SceneManager
     public static SceneManager Instance { get; } = new();
 
     public Camera MainCamera { get; private set; } = new(0, 0, 80.0f,
-        GraphicsProcessor.ConvertDegreesToRadians(45), .1f, 1000.0f
+        GraphicsProcessor.ConvertDegreesToRadians(45), 1f, 1000.0f
     );
 
     public WriteableBitmap? WriteableBitmap { get; private set; }
@@ -60,7 +61,7 @@ public class SceneManager
         ViewportHeight = height;
         WriteableBitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Rgb24, null);
         MainCamera = new Camera(width, height, 80.0f, GraphicsProcessor.ConvertDegreesToRadians(45),
-            .1f, 200.0f
+            1f, 2000.0f
         );
         ShadowType = ShadowType.Lambert;
         MainCamera.Change += Redraw;
@@ -146,14 +147,13 @@ public class SceneManager
                     Array.Resize(ref _locks, ViewportHeight * ViewportWidth);
                 }
 
-                cancelSource.CancelAfter(1000);
+                cancelSource.CancelAfter(10000);
 
                 await Task.Run(() =>
                 {
                     Vector3[] screenVertices = model.WorldVertices.Select(v => camera.ProjectToScreen(v)).ToArray();
 
-                    Parallel.ForEach(model.Polygons,
-                        new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount - 1 },
+                    Parallel.ForEach(Partitioner.Create(model.Polygons),
                         polygon =>
                         {
                             if (cancelSource.IsCancellationRequested)
@@ -170,6 +170,9 @@ public class SceneManager
                                     break;
                                 case ShadowType.Lambert:
                                     shadowProcessor = new LambertShadowProcessor();
+                                    break;
+                                case ShadowType.Gouraud:
+                                    shadowProcessor = new GurouShadowProcessor();
                                     break;
                                 case ShadowType.PhongShadow:
                                     shadowProcessor = new PhongShadowProcessor();
@@ -190,7 +193,9 @@ public class SceneManager
 
                 foreach (KeyValuePair<long, long> render in _renders)
                 {
-                    if (render.Value < DateTimeOffset.Now.ToUnixTimeMilliseconds() - 5)
+                    if ((render.Value < DateTimeOffset.Now.ToUnixTimeMilliseconds() - 40 &&
+                         render.Value != _renders.Last().Value) ||
+                        (render.Value == _renders.Last().Value && time == render.Value))
                     {
                         _renders.Remove(render.Key);
                     }

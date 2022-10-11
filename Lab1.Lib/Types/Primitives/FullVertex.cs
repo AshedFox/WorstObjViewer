@@ -10,4 +10,5 @@ public struct FullVertex
     public Vector3 Vertex { get; set; }
     public Vector3 Normal { get; set; }
     public Vector2 Texture { get; set; }
+    public Color Color { get; set; }
 }

@@ -265,4 +265,7 @@ public partial class MainWindow : Window
             }
         }
     }
+
+    private void ShadowGurouMenuItem_OnClick(object sender, RoutedEventArgs e) =>
+        SceneManager.ChangeShadow(ShadowType.Gouraud);
 }
