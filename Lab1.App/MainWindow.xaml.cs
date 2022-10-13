@@ -110,20 +110,11 @@ public partial class MainWindow : Window
 
     private void ModelCanvas_OnMouseDown(object sender, MouseButtonEventArgs e)
     {
-        if (!IsMoving)
+        if (e.LeftButton == MouseButtonState.Pressed || e.MiddleButton == MouseButtonState.Pressed)
         {
-            if (e.LeftButton == MouseButtonState.Pressed)
-            {
-                IsMoving = true;
-                Point position = e.GetPosition(ModelCanvas);
-                TempPoint = new Vector2((float)position.X, (float)position.Y);
-            }
-            else if (e.MiddleButton == MouseButtonState.Pressed)
-            {
-                IsMoving = true;
-                Point position = e.GetPosition(ModelCanvas);
-                TempPoint = new Vector2((float)position.X, (float)position.Y);
-            }
+            IsMoving = true;
+            Point position = e.GetPosition(ModelCanvas);
+            TempPoint = new Vector2((float)position.X, (float)position.Y);
         }
     }
 
@@ -167,6 +158,9 @@ public partial class MainWindow : Window
 
     private void ShadowLambertMenuItem_OnClick(object sender, RoutedEventArgs e) =>
         SceneManager.ChangeShadow(ShadowType.Lambert);
+
+    private void ShadowGouraudMenuItem_OnClick(object sender, RoutedEventArgs e) =>
+        SceneManager.ChangeShadow(ShadowType.Gouraud);
 
     private void ShadowPhongMenuItem_OnClick(object sender, RoutedEventArgs e) =>
         SceneManager.ChangeShadow(ShadowType.PhongShadow);
@@ -266,6 +260,22 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ShadowGurouMenuItem_OnClick(object sender, RoutedEventArgs e) =>
-        SceneManager.ChangeShadow(ShadowType.Gouraud);
+    private void EmissionTextureMenuItem_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (SceneManager.Model != null)
+        {
+            BitmapSource? bitmapSource = ReadImage();
+            if (bitmapSource is not null)
+            {
+                var width = bitmapSource.PixelWidth;
+                var height = bitmapSource.PixelHeight;
+                var bytesPerPixel = bitmapSource.Format.BitsPerPixel / 8;
+
+                var colors = new byte[width * height * bytesPerPixel];
+                bitmapSource.CopyPixels(colors, width * bytesPerPixel, 0);
+
+                SceneManager.Model.ChangeEmissionTexture(new Texture(colors, width, height, bytesPerPixel));
+            }
+        }
+    }
 }

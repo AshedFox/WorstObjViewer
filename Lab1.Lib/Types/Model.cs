@@ -76,6 +76,8 @@ public class Model
     public Texture? DiffuseTexture { get; private set; }
     public NormalTexture? NormalTexture { get; private set; }
     public Texture? SpecularTexture { get; private set; }
+    public Texture? EmissionTexture { get; private set; }
+
 
     public event ChangeHandler? Change;
 
@@ -94,6 +96,12 @@ public class Model
     public void ChangeSpecularTexture(Texture specularTexture)
     {
         SpecularTexture = specularTexture;
+        OnChange();
+    }
+
+    public void ChangeEmissionTexture(Texture emissionTexture)
+    {
+        EmissionTexture = emissionTexture;
         OnChange();
     }
 

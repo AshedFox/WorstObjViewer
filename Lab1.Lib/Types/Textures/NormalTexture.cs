@@ -30,7 +30,7 @@ public class NormalTexture
 
         var offset = (x + y * _width) * _bytesPerPixel;
 
-        if (_bytesPerPixel == 4 || _bytesPerPixel == 3)
+        if (offset >= 0 && offset + _bytesPerPixel < _colors.Length && (_bytesPerPixel == 4 || _bytesPerPixel == 3))
         {
             var b = _colors[offset];
             var g = _colors[offset + 1];

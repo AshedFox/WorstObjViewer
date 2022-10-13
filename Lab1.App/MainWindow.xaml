@@ -21,6 +21,8 @@
                               Click="NormalTextureMenuItem_OnClick" />
                     <MenuItem Name="SpecularTextureMenuItem" Header="Зеркальная карта"
                               Click="SpecularTextureMenuItem_OnClick" />
+                    <MenuItem Name="EmissionTextureMenuItem" Header="Карта излучения"
+                              Click="EmissionTextureMenuItem_OnClick" />
                 </MenuItem>
                 <MenuItem Name="ResetCameraMenuItem" Header="Сбросить положение камеры"
                           Click="ResetCameraMenuItem_OnClick" />
@@ -28,11 +30,12 @@
                     <MenuItem Header="Затенение">
                         <MenuItem Name="ShadowNoneMenuItem" Header="Нет" Click="ShadowNoneMenuItem_OnClick" />
                         <MenuItem Name="ShadowLambertMenuItem" Header="Ламберт" Click="ShadowLambertMenuItem_OnClick" />
-                        <MenuItem Name="ShadowGurouMenuItem" Header="Гуро" Click="ShadowGurouMenuItem_OnClick" />
+                        <MenuItem Name="ShadowGurouMenuItem" Header="Гуро" Click="ShadowGouraudMenuItem_OnClick" />
                         <MenuItem Name="ShadowPhongMenuItem" Header="Фонг(затенение)"
                                   Click="ShadowPhongMenuItem_OnClick" />
                         <MenuItem Name="LightPhongMenuItem" Header="Фонг(освещение)" Click="LightPhongMenuItem_OnClick" />
                     </MenuItem>
+                    <MenuItem Header="Bloom-эффект" IsCheckable="True" />
                 </MenuItem>
             </Menu>
         </DockPanel>

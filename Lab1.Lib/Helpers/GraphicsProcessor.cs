@@ -46,8 +46,10 @@ public static class GraphicsProcessor
     private static void FillPixelWithScanline(ref byte[] pixels, ref float[] zBuffer, ref SpinLock[] locks,
         ref FullVertex[] scanline, float x, float y, int width, Color color)
     {
-        var phi = (x - scanline[0].Vertex.X) / (scanline[1].Vertex.X - scanline[0].Vertex.X);
-        Vector3 v = scanline[0].Vertex + (scanline[1].Vertex - scanline[0].Vertex) * phi;
+        Vector4 v = Interpolate(scanline[0].Vertex, scanline[1].Vertex,
+            scanline[0].Vertex.W, scanline[1].Vertex.W,
+            scanline[0].Vertex.X, scanline[1].Vertex.X, x
+        );
         var offset = (int)(x + y * width);
 
         if (offset >= 0 && offset < zBuffer.Length && offset < pixels.Length && offset < locks.Length &&
@@ -87,25 +89,32 @@ public static class GraphicsProcessor
         return Vector3.Normalize(Vector3.Cross(v1 - v2, v3 - v2));
     }
 
-    public static Vector2 InterpolateUV(Vector2 startV, Vector2 endV, float startZ, float endZ,
+    public static Vector2 InterpolateUV(Vector2 startV, Vector2 endV, float startW, float endW,
         float interpolationStart, float interpolationEnd, float interpolationValue)
     {
         var phi = (interpolationValue - interpolationStart) / (interpolationEnd - interpolationStart);
 
-        return ((1 - phi) * startV / startZ + phi * endV / endZ) /
-               ((1 - phi) * 1 / startZ + phi * 1 / endZ);
+        return ((1 - phi) * startV * startW + phi * endV * endW) / ((1 - phi) * startW + phi * endW);
     }
 
-    public static Vector3 Interpolate(Vector3 startV, Vector3 endV, float interpolationStart, float interpolationEnd,
-        float interpolationValue) =>
-        startV + (endV - startV) * (interpolationValue - interpolationStart) / (interpolationEnd - interpolationStart);
+    public static Vector4 Interpolate(Vector4 startV, Vector4 endV, float startW, float endW,
+        float interpolationStart, float interpolationEnd, float interpolationValue)
+    {
+        var phi = (interpolationValue - interpolationStart) / (interpolationEnd - interpolationStart);
 
-    public static Vector3 InterpolateNormal(Vector3 startV, Vector3 endV, float interpolationStart,
-        float interpolationEnd, float interpolationValue) =>
-        Vector3.Normalize(Interpolate(startV, endV, interpolationStart, interpolationEnd, interpolationValue));
+        return ((1 - phi) * startV * startW + phi * endV * endW) / ((1 - phi) * startW + phi * endW);
+    }
+
+    public static Vector3 InterpolateNormal(Vector3 startV, Vector3 endV, float startW, float endW,
+        float interpolationStart, float interpolationEnd, float interpolationValue)
+    {
+        var phi = (interpolationValue - interpolationStart) / (interpolationEnd - interpolationStart);
+
+        return Vector3.Normalize(((1 - phi) * startV * startW + phi * endV * endW) / ((1 - phi) * startW + phi * endW));
+    }
 
     public static void DrawPolygon(ref byte[] pixels, ref float[] zBuffer, ref SpinLock[] locks, ref Polygon polygon,
-        ref Vector3[] screenVertices, ref Model model, ref Camera camera, IShadowProcessor? shadowProcessor,
+        ref Vector4[] screenVertices, ref Model model, ref Camera camera, IShadowProcessor? shadowProcessor,
         Vector3 light)
     {
         if (polygon.Points.Length <= 2)
@@ -130,8 +139,8 @@ public static class GraphicsProcessor
 
         for (var i = 0; i < polygon.Points.Length; i++)
         {
-            Vector3 vertex1 = screenVertices[polygon.Points[i].VertexIndex - 1];
-            Vector3 vertex2 = screenVertices[polygon.Points[(i + 1) % polygon.Points.Length].VertexIndex - 1];
+            Vector4 vertex1 = screenVertices[polygon.Points[i].VertexIndex - 1];
+            Vector4 vertex2 = screenVertices[polygon.Points[(i + 1) % polygon.Points.Length].VertexIndex - 1];
             Vector3 normal1 = model.Normals[polygon.Points[i].NormalIndex - 1];
             Vector3 normal2 = model.Normals[polygon.Points[(i + 1) % polygon.Points.Length].NormalIndex - 1];
             Vector2 texture1 = model.TexturesVertices[polygon.Points[i].TextureIndex - 1];
@@ -186,12 +195,16 @@ public static class GraphicsProcessor
                 if (IsIntersect(y, edge.FullVertex1.Vertex.Y, edge.FullVertex2.Vertex.Y))
                 {
                     var phi = (y - edge.FullVertex1.Vertex.Y) / (edge.FullVertex2.Vertex.Y - edge.FullVertex1.Vertex.Y);
-                    Vector3 v = edge.FullVertex1.Vertex + (edge.FullVertex2.Vertex - edge.FullVertex1.Vertex) * phi;
-                    Vector3 n = Vector3.Normalize(
-                        edge.FullVertex1.Normal + phi * (edge.FullVertex2.Normal - edge.FullVertex1.Normal)
+                    Vector4 v = Interpolate(edge.FullVertex1.Vertex, edge.FullVertex2.Vertex,
+                        edge.FullVertex1.Vertex.W, edge.FullVertex2.Vertex.W,
+                        edge.FullVertex1.Vertex.Y, edge.FullVertex2.Vertex.Y, y
+                    );
+                    Vector3 n = InterpolateNormal(edge.FullVertex1.Normal, edge.FullVertex2.Normal,
+                        edge.FullVertex1.Vertex.W, edge.FullVertex2.Vertex.W,
+                        edge.FullVertex1.Vertex.Y, edge.FullVertex2.Vertex.Y, y
                     );
                     Vector2 t = InterpolateUV(edge.FullVertex1.Texture, edge.FullVertex2.Texture,
-                        edge.FullVertex1.Vertex.Z, edge.FullVertex2.Vertex.Z,
+                        edge.FullVertex1.Vertex.W, edge.FullVertex2.Vertex.W,
                         edge.FullVertex1.Vertex.Y, edge.FullVertex2.Vertex.Y, y
                     );
                     Color c = edge.FullVertex1.Color;
@@ -226,8 +239,8 @@ public static class GraphicsProcessor
                     {
                         if (x > 0 && x < camera.ViewportWidth && y > 0 && y < camera.ViewportHeight)
                         {
-                            Vector2 texture = InterpolateUV(ends[0].Texture, ends[1].Texture, ends[0].Vertex.Z,
-                                ends[1].Vertex.Z, ends[0].Vertex.X, ends[1].Vertex.X, x
+                            Vector2 texture = InterpolateUV(ends[0].Texture, ends[1].Texture, ends[0].Vertex.W,
+                                ends[1].Vertex.W, ends[0].Vertex.X, ends[1].Vertex.X, x
                             );
 
                             if (model.DiffuseTexture is not null)
@@ -248,26 +261,33 @@ public static class GraphicsProcessor
                     {
                         if (x > 0 && x < camera.ViewportWidth && y > 0 && y < camera.ViewportHeight)
                         {
+                            Vector2 texture = InterpolateUV(ends[0].Texture, ends[1].Texture, ends[0].Vertex.W,
+                                ends[1].Vertex.W, ends[0].Vertex.X, ends[1].Vertex.X, x
+                            );
+
                             if (model.DiffuseTexture is not null)
                             {
-                                Vector2 texture = InterpolateUV(ends[0].Texture, ends[1].Texture, ends[0].Vertex.Z,
-                                    ends[1].Vertex.Z, ends[0].Vertex.X, ends[1].Vertex.X, x
-                                );
-
                                 if (model.DiffuseTexture is not null)
                                 {
                                     baseColor = model.DiffuseTexture.MakeColor(texture);
                                 }
                             }
 
+                            Color color = lambertShadowProcessor.TransformColor(baseColor);
+
+                            if (model.EmissionTexture is not null)
+                            {
+                                color += model.EmissionTexture.MakeColor(texture);
+                            }
+
                             FillPixelWithScanline(ref pixels, ref zBuffer, ref locks, ref ends, x, y,
-                                camera.ViewportWidth, lambertShadowProcessor.TransformColor(baseColor)
+                                camera.ViewportWidth, color
                             );
                         }
                     }
 
                     break;
-                case GurouShadowProcessor:
+                case GouraudShadowProcessor:
                     for (var x = ends[0].Vertex.X; x < ends[1].Vertex.X; x++)
                     {
                         if (x > 0 && x < camera.ViewportWidth && y > 0 && y < camera.ViewportHeight)
@@ -298,16 +318,16 @@ public static class GraphicsProcessor
                         if (x > 0 && x < camera.ViewportWidth && y > 0 && y < camera.ViewportHeight)
                         {
                             Vector3 n = InterpolateNormal(ends[0].Normal, ends[1].Normal,
+                                ends[0].Vertex.W, ends[1].Vertex.W,
                                 ends[0].Vertex.X, ends[1].Vertex.X, x
+                            );
+                            Vector2 texture = InterpolateUV(ends[0].Texture, ends[1].Texture,
+                                ends[0].Vertex.W, ends[1].Vertex.W, ends[0].Vertex.X,
+                                ends[1].Vertex.X, x
                             );
 
                             if (model.DiffuseTexture is not null || model.NormalTexture is not null)
                             {
-                                Vector2 texture = InterpolateUV(ends[0].Texture, ends[1].Texture,
-                                    ends[0].Vertex.Z, ends[1].Vertex.Z, ends[0].Vertex.X,
-                                    ends[1].Vertex.X, x
-                                );
-
                                 if (model.DiffuseTexture is not null)
                                 {
                                     baseColor = model.DiffuseTexture.MakeColor(texture);
@@ -321,8 +341,15 @@ public static class GraphicsProcessor
 
                             phongShadowProcessor.ChangeIntensity(-n, light);
 
+                            Color color = phongShadowProcessor.TransformColor(baseColor);
+
+                            if (model.EmissionTexture is not null)
+                            {
+                                color += model.EmissionTexture.MakeColor(texture);
+                            }
+
                             FillPixelWithScanline(ref pixels, ref zBuffer, ref locks, ref ends, x, y,
-                                camera.ViewportWidth, phongShadowProcessor.TransformColor(baseColor)
+                                camera.ViewportWidth, color
                             );
                         }
                     }
@@ -334,22 +361,26 @@ public static class GraphicsProcessor
                         if (x > 0 && x < camera.ViewportWidth && y > 0 && y < camera.ViewportHeight)
                         {
                             Vector3 n = InterpolateNormal(ends[0].Normal, ends[1].Normal,
+                                ends[0].Vertex.W, ends[1].Vertex.W,
                                 ends[0].Vertex.X, ends[1].Vertex.X, x
                             );
+                            Vector2 texture = InterpolateUV(ends[0].Texture, ends[1].Texture,
+                                ends[0].Vertex.W, ends[1].Vertex.W, ends[0].Vertex.X,
+                                ends[1].Vertex.X, x
+                            );
+
                             view = Vector3.Normalize(
                                 camera.ProjectFromScreen(new Vector3(x, y, 1)) - camera.Pivot.Position
                             );
 
+                            Color color;
+
                             if (model.DiffuseTexture is not null || model.NormalTexture is not null ||
                                 model.SpecularTexture is not null)
                             {
-                                Vector2 texture = InterpolateUV(ends[0].Texture, ends[1].Texture,
-                                    ends[0].Vertex.Z, ends[1].Vertex.Z, ends[0].Vertex.X,
-                                    ends[1].Vertex.X, x
-                                );
                                 phongTextureProcessor.Shininess = phongLightProcessor.Shininess;
 
-                                Color diffuseColor = new(0);
+                                Color diffuseColor = new(255);
                                 Color specularColor = baseColor * phongLightProcessor.SpecularFactor;
 
                                 if (model.NormalTexture is not null)
@@ -367,22 +398,25 @@ public static class GraphicsProcessor
                                     specularColor = model.SpecularTexture.MakeColor(texture);
                                 }
 
-                                Color color = phongTextureProcessor.MakeColor(-n, light, -view,
+                                color = phongTextureProcessor.MakeColor(-n, light, -view,
                                     diffuseColor, specularColor
-                                );
-
-                                FillPixelWithScanline(ref pixels, ref zBuffer, ref locks, ref ends, x, y,
-                                    camera.ViewportWidth, color
                                 );
                             }
                             else
                             {
                                 phongLightProcessor.Change(-n, light, -view);
 
-                                FillPixelWithScanline(ref pixels, ref zBuffer, ref locks, ref ends, x, y,
-                                    camera.ViewportWidth, phongLightProcessor.TransformColor(baseColor)
-                                );
+                                color = phongLightProcessor.TransformColor(baseColor);
                             }
+
+                            if (model.EmissionTexture is not null)
+                            {
+                                color += model.EmissionTexture.MakeColor(texture);
+                            }
+
+                            FillPixelWithScanline(ref pixels, ref zBuffer, ref locks, ref ends, x, y,
+                                camera.ViewportWidth, color
+                            );
                         }
                     }
 

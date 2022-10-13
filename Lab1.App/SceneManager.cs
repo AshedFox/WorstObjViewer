@@ -25,13 +25,19 @@ public class SceneManager
     private readonly Vector3 _lightVector = Vector3.Normalize(new Vector3(-1f, -1f, -1f));
     private readonly SemaphoreSlim _semaphore = new(1, 1);
     private SpinLock[] _locks = Array.Empty<SpinLock>();
+    private readonly PeriodicTimer _timer;
+    private CancellationTokenSource? _cts;
+    private const int FramesPerSecond = 60;
+    private const double FramePeriod = 1000d / FramesPerSecond;
 
     private byte[] _pixels = Array.Empty<byte>();
-    private Dictionary<long, long> _renders = new();
+    private List<long> _renders = new();
     private float[] _zBuffer = Array.Empty<float>();
 
     private SceneManager()
     {
+        _timer = new PeriodicTimer(TimeSpan.FromMilliseconds(FramePeriod));
+        Draw();
     }
 
     public static SceneManager Instance { get; } = new();
@@ -52,7 +58,14 @@ public class SceneManager
 
     public void Init(int width, int height)
     {
-        _renders = new Dictionary<long, long>();
+        if (_cts is not null)
+        {
+            _cts.Cancel();
+        }
+
+        _cts = new CancellationTokenSource();
+
+        _renders = new List<long>();
         _pixels = Array.Empty<byte>();
         _zBuffer = Array.Empty<float>();
         _locks = Array.Empty<SpinLock>();
@@ -64,30 +77,37 @@ public class SceneManager
             1f, 2000.0f
         );
         ShadowType = ShadowType.Lambert;
-        MainCamera.Change += Redraw;
+        MainCamera.Change += AddFrame;
 
-        Redraw();
+        AddFrame();
     }
 
     public void ChangeShadow(ShadowType shadowType)
     {
         ShadowType = shadowType;
 
-        Redraw();
+        AddFrame();
     }
 
     public void ChangeModel(Model model)
     {
-        _renders = new Dictionary<long, long>();
+        if (_cts is not null)
+        {
+            _cts.Cancel();
+        }
+
+        _cts = new CancellationTokenSource();
+
+        _renders = new List<long>();
         _pixels = Array.Empty<byte>();
         _zBuffer = Array.Empty<float>();
         _locks = Array.Empty<SpinLock>();
 
         Model = model;
-        Model.Change += Redraw;
+        Model.Change += AddFrame;
         MainCamera.Reset();
 
-        Redraw();
+        AddFrame();
     }
 
     public void Resize(int width, int height)
@@ -98,115 +118,110 @@ public class SceneManager
         MainCamera.ViewportWidth = width;
         MainCamera.ViewportHeight = height;
 
-        Redraw();
+        AddFrame();
     }
 
-    private async void Redraw()
+    public void AddFrame()
     {
-        if (WriteableBitmap is not null)
-        {
-            if (Model is { } model && MainCamera is { } camera && WriteableBitmap is { } bitmap)
-            {
-                var time = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-                if (!_renders.TryAdd(time, time))
-                {
-                    return;
-                }
+        _renders.Add(DateTimeOffset.Now.ToUnixTimeMilliseconds());
+    }
 
+    private async void Draw()
+    {
+        while (await _timer.WaitForNextTickAsync())
+        {
+            if (_renders.Count > 0)
+            {
                 await _semaphore.WaitAsync();
 
-                if (!_renders.ContainsKey(time))
-                {
-                    _semaphore.Release();
-                    return;
-                }
+                var startTime = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+                _cts = new CancellationTokenSource();
 
-                CancellationTokenSource cancelSource = new();
+                await Redraw();
 
-                var bytesPerPixel = bitmap.Format.BitsPerPixel / 8;
-                var size = ViewportHeight * ViewportWidth * bytesPerPixel;
+                _renders = _renders.Where((t) => t >= startTime).ToList();
 
-                Int32Rect rect = new(0, 0, ViewportWidth, ViewportHeight);
-
-                if (_pixels.Length != size)
-                {
-                    Array.Resize(ref _pixels, size);
-                }
-
-                Array.Fill(_pixels, (byte)0);
-
-                if (_zBuffer.Length != ViewportHeight * ViewportWidth)
-                {
-                    Array.Resize(ref _zBuffer, ViewportHeight * ViewportWidth);
-                }
-
-                Array.Fill(_zBuffer, 0);
-
-                if (_locks.Length != ViewportHeight * ViewportWidth)
-                {
-                    Array.Resize(ref _locks, ViewportHeight * ViewportWidth);
-                }
-
-                cancelSource.CancelAfter(10000);
-
-                await Task.Run(() =>
-                {
-                    Vector3[] screenVertices = model.WorldVertices.Select(v => camera.ProjectToScreen(v)).ToArray();
-
-                    Parallel.ForEach(Partitioner.Create(model.Polygons),
-                        polygon =>
-                        {
-                            if (cancelSource.IsCancellationRequested)
-                            {
-                                return;
-                            }
-
-                            IShadowProcessor? shadowProcessor;
-
-                            switch (ShadowType)
-                            {
-                                case ShadowType.None:
-                                    shadowProcessor = null;
-                                    break;
-                                case ShadowType.Lambert:
-                                    shadowProcessor = new LambertShadowProcessor();
-                                    break;
-                                case ShadowType.Gouraud:
-                                    shadowProcessor = new GurouShadowProcessor();
-                                    break;
-                                case ShadowType.PhongShadow:
-                                    shadowProcessor = new PhongShadowProcessor();
-                                    break;
-                                case ShadowType.PhongLight:
-                                    shadowProcessor = new PhongLightProcessor(0.05f, 0.7f, 0.5f, 20);
-                                    break;
-                                default:
-                                    throw new ArgumentOutOfRangeException();
-                            }
-
-                            GraphicsProcessor.DrawPolygon(ref _pixels, ref _zBuffer, ref _locks, ref polygon,
-                                ref screenVertices, ref model, ref camera, shadowProcessor, _lightVector
-                            );
-                        }
-                    );
-                }, cancelSource.Token);
-
-                foreach (KeyValuePair<long, long> render in _renders)
-                {
-                    if ((render.Value < DateTimeOffset.Now.ToUnixTimeMilliseconds() - 40 &&
-                         render.Value != _renders.Last().Value) ||
-                        (render.Value == _renders.Last().Value && time == render.Value))
-                    {
-                        _renders.Remove(render.Key);
-                    }
-                }
-
-                bitmap.WritePixels(rect, _pixels, rect.Width * bytesPerPixel, 0);
+                _cts.Dispose();
+                _cts = null;
 
                 _semaphore.Release();
+
+                OnChange();
+            }
+        }
+    }
+
+    private async Task Redraw()
+    {
+        if (Model is { } model && MainCamera is { } camera && WriteableBitmap is { } bitmap)
+        {
+            var bytesPerPixel = bitmap.Format.BitsPerPixel / 8;
+            var size = ViewportHeight * ViewportWidth;
+
+            Int32Rect rect = new(0, 0, ViewportWidth, ViewportHeight);
+
+            if (_pixels.Length != size * bytesPerPixel)
+            {
+                Array.Resize(ref _pixels, size * bytesPerPixel);
             }
 
-            OnChange();
+            Array.Fill(_pixels, (byte)0);
+
+            if (_zBuffer.Length != size)
+            {
+                Array.Resize(ref _zBuffer, size);
+            }
+
+            Array.Fill(_zBuffer, 0);
+
+            if (_locks.Length != size)
+            {
+                Array.Resize(ref _locks, size);
+            }
+
+            await Task.Run(() =>
+            {
+                Vector4[] screenVertices = model.WorldVertices.Select(v => camera.ProjectToScreen(v)).ToArray();
+
+                Parallel.ForEach(Partitioner.Create(model.Polygons),
+                    polygon =>
+                    {
+                        IShadowProcessor? shadowProcessor;
+
+                        switch (ShadowType)
+                        {
+                            case ShadowType.None:
+                                shadowProcessor = null;
+                                break;
+                            case ShadowType.Lambert:
+                                shadowProcessor = new LambertShadowProcessor();
+                                break;
+                            case ShadowType.Gouraud:
+                                shadowProcessor = new GouraudShadowProcessor();
+                                break;
+                            case ShadowType.PhongShadow:
+                                shadowProcessor = new PhongShadowProcessor();
+                                break;
+                            case ShadowType.PhongLight:
+                                shadowProcessor = new PhongLightProcessor(0.01f, 0.7f, 0.5f, 20);
+                                break;
+                            default:
+                                throw new ArgumentOutOfRangeException();
+                        }
+
+                        GraphicsProcessor.DrawPolygon(ref _pixels, ref _zBuffer, ref _locks, ref polygon,
+                            ref screenVertices, ref model, ref camera, shadowProcessor, _lightVector
+                        );
+                    }
+                );
+            });
+
+            if (_cts is { IsCancellationRequested: true })
+            {
+                return;
+            }
+
+            bitmap.WritePixels(rect, _pixels, rect.Width * bytesPerPixel, 0);
         }
     }
 

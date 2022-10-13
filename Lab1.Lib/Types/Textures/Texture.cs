@@ -20,33 +20,35 @@ public class Texture
         _bytesPerPixel = bytesPerPixel;
     }
 
-    public Color MakeColor(Vector2 texture)
+    public Color MakeColor(Vector2 uv)
     {
-        var u = texture.X;
-        var v = texture.Y;
+        var u = uv.X;
+        var v = uv.Y;
 
         var x = (int)(u * _width);
         var y = (int)((1 - v) * _height);
 
         var offset = (x + y * _width) * _bytesPerPixel;
 
-        if (_bytesPerPixel == 4)
+        if (offset >= 0 && offset + _bytesPerPixel < _colors.Length)
         {
-            var b = _colors[offset];
-            var g = _colors[offset + 1];
-            var r = _colors[offset + 2];
-            var a = _colors[offset + 3];
+            if (_bytesPerPixel == 4)
+            {
+                var b = _colors[offset];
+                var g = _colors[offset + 1];
+                var r = _colors[offset + 2];
+                var a = _colors[offset + 3];
 
-            return new Color(r, g, b, a);
-        }
+                return new Color(r, g, b, a);
+            }
+            else if (_bytesPerPixel == 3)
+            {
+                var b = _colors[offset];
+                var g = _colors[offset + 1];
+                var r = _colors[offset + 2];
 
-        if (_bytesPerPixel == 3)
-        {
-            var b = _colors[offset];
-            var g = _colors[offset + 1];
-            var r = _colors[offset + 2];
-
-            return new Color(r, g, b);
+                return new Color(r, g, b);
+            }
         }
 
         return new Color(255);
