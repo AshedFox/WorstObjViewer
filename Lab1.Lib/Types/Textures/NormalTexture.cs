@@ -32,9 +32,9 @@ public class NormalTexture
 
         if (offset >= 0 && offset + _bytesPerPixel < _colors.Length && (_bytesPerPixel == 4 || _bytesPerPixel == 3))
         {
-            var b = _colors[offset];
-            var g = _colors[offset + 1];
-            var r = _colors[offset + 2];
+            float b = _colors[offset];
+            float g = _colors[offset + 1];
+            float r = _colors[offset + 2];
 
             return new Vector3(r / 255f * 2f - 1f, g / 255f * 2f - 1f, b / 255f * 2f - 1f);
         }

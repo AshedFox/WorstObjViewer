@@ -43,17 +43,15 @@ public static class GraphicsProcessor
         return false;
     }
 
-    private static void FillPixelWithScanline(ref byte[] pixels, ref float[] zBuffer, ref SpinLock[] locks,
+    private static void FillColorWithScanline(ref Color[] colorsBuffer, ref float[] zBuffer, ref SpinLock[] locks,
         ref FullVertex[] scanline, float x, float y, int width, Color color)
     {
         Vector4 v = Interpolate(scanline[0].Vertex, scanline[1].Vertex,
-            scanline[0].Vertex.W, scanline[1].Vertex.W,
             scanline[0].Vertex.X, scanline[1].Vertex.X, x
         );
         var offset = (int)(x + y * width);
 
-        if (offset >= 0 && offset < zBuffer.Length && offset < pixels.Length && offset < locks.Length &&
-            v.Z is > 0 and < 1)
+        if (offset >= 0 && offset < zBuffer.Length && v.Z is > 0 and < 1)
         {
             var lockTaken = false;
             try
@@ -62,12 +60,7 @@ public static class GraphicsProcessor
                 if (v.Z < zBuffer[offset] || zBuffer[offset] == 0)
                 {
                     zBuffer[offset] = v.Z;
-
-                    var transparency = (float)color.Alpha / 255;
-
-                    pixels[3 * offset] = (byte)(color.Red * transparency);
-                    pixels[3 * offset + 1] = (byte)(color.Green * transparency);
-                    pixels[3 * offset + 2] = (byte)(color.Blue * transparency);
+                    colorsBuffer[offset] = color;
                 }
             }
             finally
@@ -97,12 +90,12 @@ public static class GraphicsProcessor
         return ((1 - phi) * startV * startW + phi * endV * endW) / ((1 - phi) * startW + phi * endW);
     }
 
-    public static Vector4 Interpolate(Vector4 startV, Vector4 endV, float startW, float endW,
+    public static Vector4 Interpolate(Vector4 startV, Vector4 endV,
         float interpolationStart, float interpolationEnd, float interpolationValue)
     {
         var phi = (interpolationValue - interpolationStart) / (interpolationEnd - interpolationStart);
 
-        return ((1 - phi) * startV * startW + phi * endV * endW) / ((1 - phi) * startW + phi * endW);
+        return startV + phi * (endV - startV);
     }
 
     public static Vector3 InterpolateNormal(Vector3 startV, Vector3 endV, float startW, float endW,
@@ -113,7 +106,22 @@ public static class GraphicsProcessor
         return Vector3.Normalize(((1 - phi) * startV * startW + phi * endV * endW) / ((1 - phi) * startW + phi * endW));
     }
 
-    public static void DrawPolygon(ref byte[] pixels, ref float[] zBuffer, ref SpinLock[] locks, ref Polygon polygon,
+    public static Color ACESMapTone(Color color)
+    {
+        const float a = 2.51f;
+        const float b = 0.03f;
+        const float c = 2.43f;
+        const float d = 0.59f;
+        const float e = 0.14f;
+
+        color.Red = Math.Min(color.Red * (a * color.Red + b) / (color.Red * (c * color.Red + d) + e), 1);
+        color.Green = Math.Min(color.Green * (a * color.Green + b) / (color.Green * (c * color.Green + d) + e), 1);
+        color.Blue = Math.Min(color.Blue * (a * color.Blue + b) / (color.Blue * (c * color.Blue + d) + e), 1);
+        return color;
+    }
+
+    public static void FillPolygonColors(ref Color[] colorsBuffer, ref float[] zBuffer, ref SpinLock[] locks,
+        ref Polygon polygon,
         ref Vector4[] screenVertices, ref Model model, ref Camera camera, IShadowProcessor? shadowProcessor,
         Vector3 light)
     {
@@ -196,7 +204,6 @@ public static class GraphicsProcessor
                 {
                     var phi = (y - edge.FullVertex1.Vertex.Y) / (edge.FullVertex2.Vertex.Y - edge.FullVertex1.Vertex.Y);
                     Vector4 v = Interpolate(edge.FullVertex1.Vertex, edge.FullVertex2.Vertex,
-                        edge.FullVertex1.Vertex.W, edge.FullVertex2.Vertex.W,
                         edge.FullVertex1.Vertex.Y, edge.FullVertex2.Vertex.Y, y
                     );
                     Vector3 n = InterpolateNormal(edge.FullVertex1.Normal, edge.FullVertex2.Normal,
@@ -207,15 +214,9 @@ public static class GraphicsProcessor
                         edge.FullVertex1.Vertex.W, edge.FullVertex2.Vertex.W,
                         edge.FullVertex1.Vertex.Y, edge.FullVertex2.Vertex.Y, y
                     );
-                    Color c = edge.FullVertex1.Color;
-                    c.Red = (byte)Math.Clamp(c.Red + (edge.FullVertex2.Color.Red - edge.FullVertex1.Color.Red) * phi, 0,
-                        255);
-                    c.Green = (byte)Math.Clamp(
-                        c.Green + (edge.FullVertex2.Color.Green - edge.FullVertex1.Color.Green) * phi, 0, 255);
-                    c.Blue = (byte)Math.Clamp(
-                        c.Blue + (edge.FullVertex2.Color.Blue - edge.FullVertex1.Color.Blue) * phi, 0, 255);
-                    c.Alpha = (byte)Math.Clamp(
-                        c.Alpha + (edge.FullVertex2.Color.Alpha - edge.FullVertex1.Color.Alpha) * phi, 0, 255);
+                    Color c = edge.FullVertex1.Color + (edge.FullVertex2.Color - edge.FullVertex1.Color) * phi;
+                    c.Alpha = edge.FullVertex1.Color.Alpha +
+                              (edge.FullVertex2.Color.Alpha - edge.FullVertex1.Color.Alpha) * phi;
 
                     ends[index].Vertex = v;
                     ends[index].Normal = n;
@@ -230,7 +231,7 @@ public static class GraphicsProcessor
                 (ends[0], ends[1]) = (ends[1], ends[0]);
             }
 
-            Color baseColor = new(255);
+            Color baseColor = new(1);
 
             switch (shadowProcessor)
             {
@@ -248,7 +249,7 @@ public static class GraphicsProcessor
                                 baseColor = model.DiffuseTexture.MakeColor(texture);
                             }
 
-                            FillPixelWithScanline(ref pixels, ref zBuffer, ref locks, ref ends, x, y,
+                            FillColorWithScanline(ref colorsBuffer, ref zBuffer, ref locks, ref ends, x, y,
                                 camera.ViewportWidth, baseColor);
                         }
                     }
@@ -280,7 +281,7 @@ public static class GraphicsProcessor
                                 color += model.EmissionTexture.MakeColor(texture);
                             }
 
-                            FillPixelWithScanline(ref pixels, ref zBuffer, ref locks, ref ends, x, y,
+                            FillColorWithScanline(ref colorsBuffer, ref zBuffer, ref locks, ref ends, x, y,
                                 camera.ViewportWidth, color
                             );
                         }
@@ -293,19 +294,10 @@ public static class GraphicsProcessor
                         if (x > 0 && x < camera.ViewportWidth && y > 0 && y < camera.ViewportHeight)
                         {
                             var phi = (x - ends[0].Vertex.X) / (ends[1].Vertex.X - ends[0].Vertex.X);
-                            Color color = ends[0].Color;
-                            color.Red = (byte)Math.Clamp(color.Red + (ends[1].Color.Red - ends[0].Color.Red) * phi, 0,
-                                255);
-                            color.Green =
-                                (byte)Math.Clamp(color.Green + (ends[1].Color.Green - ends[0].Color.Green) * phi, 0,
-                                    255);
-                            color.Blue = (byte)Math.Clamp(color.Blue + (ends[1].Color.Blue - ends[0].Color.Blue) * phi,
-                                0, 255);
-                            color.Alpha =
-                                (byte)Math.Clamp(color.Alpha + (ends[1].Color.Alpha - ends[0].Color.Alpha) * phi, 0,
-                                    255);
+                            Color color = ends[0].Color + (ends[1].Color - ends[0].Color) * phi;
+                            color.Alpha = ends[0].Color.Alpha + (ends[1].Color.Alpha - ends[0].Color.Alpha) * phi;
 
-                            FillPixelWithScanline(ref pixels, ref zBuffer, ref locks, ref ends, x, y,
+                            FillColorWithScanline(ref colorsBuffer, ref zBuffer, ref locks, ref ends, x, y,
                                 camera.ViewportWidth, color
                             );
                         }
@@ -348,7 +340,7 @@ public static class GraphicsProcessor
                                 color += model.EmissionTexture.MakeColor(texture);
                             }
 
-                            FillPixelWithScanline(ref pixels, ref zBuffer, ref locks, ref ends, x, y,
+                            FillColorWithScanline(ref colorsBuffer, ref zBuffer, ref locks, ref ends, x, y,
                                 camera.ViewportWidth, color
                             );
                         }
@@ -376,12 +368,10 @@ public static class GraphicsProcessor
                             Color color;
 
                             if (model.DiffuseTexture is not null || model.NormalTexture is not null ||
-                                model.SpecularTexture is not null)
+                                model.MRAOTexture is not null)
                             {
-                                phongTextureProcessor.Shininess = phongLightProcessor.Shininess;
-
-                                Color diffuseColor = new(255);
-                                Color specularColor = baseColor * phongLightProcessor.SpecularFactor;
+                                Color diffuseColor = new(1);
+                                Color mraoColor = new(0);
 
                                 if (model.NormalTexture is not null)
                                 {
@@ -393,13 +383,13 @@ public static class GraphicsProcessor
                                     diffuseColor = model.DiffuseTexture.MakeColor(texture);
                                 }
 
-                                if (model.SpecularTexture is not null)
+                                if (model.MRAOTexture is not null)
                                 {
-                                    specularColor = model.SpecularTexture.MakeColor(texture);
+                                    mraoColor = model.MRAOTexture.MakeColor(texture);
                                 }
 
                                 color = phongTextureProcessor.MakeColor(-n, light, -view,
-                                    diffuseColor, specularColor
+                                    diffuseColor, mraoColor
                                 );
                             }
                             else
@@ -414,7 +404,7 @@ public static class GraphicsProcessor
                                 color += model.EmissionTexture.MakeColor(texture);
                             }
 
-                            FillPixelWithScanline(ref pixels, ref zBuffer, ref locks, ref ends, x, y,
+                            FillColorWithScanline(ref colorsBuffer, ref zBuffer, ref locks, ref ends, x, y,
                                 camera.ViewportWidth, color
                             );
                         }
@@ -425,5 +415,9 @@ public static class GraphicsProcessor
                     throw new ArgumentOutOfRangeException(nameof(shadowProcessor));
             }
         }
+    }
+
+    public static void GaussianBlur(ref Color[] colorsBuffer)
+    {
     }
 }

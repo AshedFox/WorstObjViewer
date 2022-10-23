@@ -55,9 +55,9 @@ public class Model
             }
         }
 
-        var scale = 40f / Math.Max(Math.Max(maxX - minX, maxY - minY), maxZ - minZ);
+        Vector3 scale = new(40f / Math.Max(Math.Max(maxX - minX, maxY - minY), maxZ - minZ));
 
-        Pivot.Scale(new Vector3(scale));
+        Pivot.Scale(scale);
 
         WorldVertices = LocalVertices.Select(v => Pivot.ToWorldCoords(v)).ToArray();
         TexturesVertices = texturesVertices.ToArray();
@@ -75,7 +75,7 @@ public class Model
 
     public Texture? DiffuseTexture { get; private set; }
     public NormalTexture? NormalTexture { get; private set; }
-    public Texture? SpecularTexture { get; private set; }
+    public Texture? MRAOTexture { get; private set; }
     public Texture? EmissionTexture { get; private set; }
 
 
@@ -93,9 +93,9 @@ public class Model
         OnChange();
     }
 
-    public void ChangeSpecularTexture(Texture specularTexture)
+    public void ChangeMRAOTexture(Texture mraoTexture)
     {
-        SpecularTexture = specularTexture;
+        MRAOTexture = mraoTexture;
         OnChange();
     }
 

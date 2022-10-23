@@ -12,7 +12,7 @@ public class Camera
     public delegate void ChangeHandler();
 
     private readonly float _maxDistance = 500f;
-    private readonly float _minDistance = 5f;
+    private readonly float _minDistance = 10f;
 
     private float _speed = 1.0f;
 

@@ -168,6 +168,9 @@ public partial class MainWindow : Window
     private void LightPhongMenuItem_OnClick(object sender, RoutedEventArgs e) =>
         SceneManager.ChangeShadow(ShadowType.PhongLight);
 
+    private void BloomMenuItem_OnClick(object sender, RoutedEventArgs e) =>
+        SceneManager.ChangeBloom(!SceneManager.WithBloom);
+
     private BitmapSource? ReadImage()
     {
         OpenFileDialog openFileDialog = new() { Filter = "Image (*.jpg;*.jpeg;*.png)|*.jpg;*.jpeg;*.png" };
@@ -241,7 +244,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void SpecularTextureMenuItem_OnClick(object sender, RoutedEventArgs e)
+    private void MRAOTextureMenuItem_OnClick(object sender, RoutedEventArgs e)
     {
         if (SceneManager.Model != null)
         {
@@ -255,7 +258,7 @@ public partial class MainWindow : Window
                 var colors = new byte[width * height * bytesPerPixel];
                 bitmapSource.CopyPixels(colors, width * bytesPerPixel, 0);
 
-                SceneManager.Model.ChangeSpecularTexture(new Texture(colors, width, height, bytesPerPixel));
+                SceneManager.Model.ChangeMRAOTexture(new Texture(colors, width, height, bytesPerPixel));
             }
         }
     }

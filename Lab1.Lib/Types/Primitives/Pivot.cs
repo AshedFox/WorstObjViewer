@@ -68,7 +68,13 @@ public class Pivot
         ZAxis = Vector3.Transform(ZAxis, scaleMatrix);
     }
 
-    public void Move(Vector3 moveVector) => Position += moveVector;
+    public void Translate(Vector3 translation)
+    {
+        Matrix4x4 translationMatrix = Matrix4x4.CreateTranslation(translation);
+        XAxis = Vector3.Transform(XAxis, translationMatrix);
+        YAxis = Vector3.Transform(YAxis, translationMatrix);
+        ZAxis = Vector3.Transform(ZAxis, translationMatrix);
+    }
 
     public Vector3 ToWorldCoords(Vector3 local) => Vector3.Transform(local, WorldMatrix) + Position;
 

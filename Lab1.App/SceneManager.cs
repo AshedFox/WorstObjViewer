@@ -15,6 +15,7 @@ using Lab1.Lib.Enums;
 using Lab1.Lib.Helpers;
 using Lab1.Lib.Helpers.Shadow;
 using Lab1.Lib.Types;
+using Color = Lab1.Lib.Types.Color;
 
 namespace Lab1.App;
 
@@ -22,16 +23,25 @@ public class SceneManager
 {
     public delegate void ChangeHandler();
 
-    private readonly Vector3 _lightVector = Vector3.Normalize(new Vector3(-1f, -1f, -1f));
-    private readonly SemaphoreSlim _semaphore = new(1, 1);
-    private SpinLock[] _locks = Array.Empty<SpinLock>();
-    private readonly PeriodicTimer _timer;
-    private CancellationTokenSource? _cts;
     private const int FramesPerSecond = 60;
     private const double FramePeriod = 1000d / FramesPerSecond;
 
+    private static readonly float[] s_gaussianWeights =
+    {
+        0.2270270270f, 0.1945945946f, 0.1216216216f, 0.0540540541f, 0.0162162162f
+    };
+
+    private readonly Vector3 _lightVector = Vector3.Normalize(new Vector3(-1f, -1f, -1f));
+    private readonly SemaphoreSlim _semaphore = new(1, 1);
+    private readonly PeriodicTimer _timer;
+    private Color[] _brightColorsBuffer = Array.Empty<Color>();
+
+    private Color[] _colorsBuffer = Array.Empty<Color>();
+    private CancellationTokenSource? _cts;
+    private long _currentFrameStartAt;
+    private SpinLock[] _locks = Array.Empty<SpinLock>();
     private byte[] _pixels = Array.Empty<byte>();
-    private List<long> _renders = new();
+    private Queue<long> _renders = new();
     private float[] _zBuffer = Array.Empty<float>();
 
     private SceneManager()
@@ -53,19 +63,22 @@ public class SceneManager
     public int ViewportWidth { get; private set; }
     public int ViewportHeight { get; private set; }
     public ShadowType ShadowType { get; private set; }
+    public bool WithBloom { get; private set; }
 
     public event ChangeHandler? ChangeEvent;
 
     public void Init(int width, int height)
     {
+        _renders = new Queue<long>();
+
         if (_cts is not null)
         {
             _cts.Cancel();
         }
 
-        _cts = new CancellationTokenSource();
+        _cts = null;
+        _currentFrameStartAt = 0;
 
-        _renders = new List<long>();
         _pixels = Array.Empty<byte>();
         _zBuffer = Array.Empty<float>();
         _locks = Array.Empty<SpinLock>();
@@ -89,16 +102,26 @@ public class SceneManager
         AddFrame();
     }
 
+    public void ChangeBloom(bool withBloom)
+    {
+        WithBloom = withBloom;
+
+        AddFrame();
+    }
+
     public void ChangeModel(Model model)
     {
+        _renders = new Queue<long>();
+
         if (_cts is not null)
         {
             _cts.Cancel();
         }
 
-        _cts = new CancellationTokenSource();
+        _cts = null;
 
-        _renders = new List<long>();
+        _currentFrameStartAt = 0;
+
         _pixels = Array.Empty<byte>();
         _zBuffer = Array.Empty<float>();
         _locks = Array.Empty<SpinLock>();
@@ -121,37 +144,62 @@ public class SceneManager
         AddFrame();
     }
 
-    public void AddFrame()
-    {
-        _renders.Add(DateTimeOffset.Now.ToUnixTimeMilliseconds());
-    }
+    public void AddFrame() => _renders.Enqueue(DateTimeOffset.Now.ToUnixTimeMilliseconds());
 
     private async void Draw()
     {
         while (await _timer.WaitForNextTickAsync())
         {
-            if (_renders.Count > 0)
-            {
-                await _semaphore.WaitAsync();
+            ProcessFrame();
+        }
+    }
 
-                var startTime = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+    private async void ProcessFrame()
+    {
+        if (_renders.Count > 0)
+        {
+            if (_semaphore.CurrentCount == 0)
+            {
+                if (_renders.Count > 1)
+                {
+                    _renders.TryDequeue(out _);
+                }
+
+                return;
+            }
+
+            if (await _semaphore.WaitAsync((int)(10 * FramePeriod)))
+            {
+                _renders.TryDequeue(out _);
+
                 _cts = new CancellationTokenSource();
 
-                await Redraw();
+                _currentFrameStartAt = DateTimeOffset.Now.ToUnixTimeMilliseconds();
 
-                _renders = _renders.Where((t) => t >= startTime).ToList();
+                await DrawFrame();
 
-                _cts.Dispose();
-                _cts = null;
-
-                _semaphore.Release();
+                while (_renders.TryPeek(out var time) && time < _currentFrameStartAt)
+                {
+                    _renders.TryDequeue(out _);
+                }
 
                 OnChange();
+
+                if (_cts is not null)
+                {
+                    _cts.Dispose();
+                    _cts = null;
+                }
+
+                if (_semaphore.CurrentCount == 0)
+                {
+                    _semaphore.Release();
+                }
             }
         }
     }
 
-    private async Task Redraw()
+    private async Task DrawFrame()
     {
         if (Model is { } model && MainCamera is { } camera && WriteableBitmap is { } bitmap)
         {
@@ -160,12 +208,17 @@ public class SceneManager
 
             Int32Rect rect = new(0, 0, ViewportWidth, ViewportHeight);
 
+            if (_colorsBuffer.Length != size)
+            {
+                Array.Resize(ref _colorsBuffer, size);
+            }
+
+            Array.Fill(_colorsBuffer, new Color(0));
+
             if (_pixels.Length != size * bytesPerPixel)
             {
                 Array.Resize(ref _pixels, size * bytesPerPixel);
             }
-
-            Array.Fill(_pixels, (byte)0);
 
             if (_zBuffer.Length != size)
             {
@@ -186,6 +239,11 @@ public class SceneManager
                 Parallel.ForEach(Partitioner.Create(model.Polygons),
                     polygon =>
                     {
+                        if (_cts is { IsCancellationRequested: true })
+                        {
+                            return;
+                        }
+
                         IShadowProcessor? shadowProcessor;
 
                         switch (ShadowType)
@@ -203,17 +261,131 @@ public class SceneManager
                                 shadowProcessor = new PhongShadowProcessor();
                                 break;
                             case ShadowType.PhongLight:
-                                shadowProcessor = new PhongLightProcessor(0.01f, 0.7f, 0.5f, 20);
+                                shadowProcessor = new PhongLightProcessor(0.05f, 0.7f, 0.5f, 20);
                                 break;
                             default:
                                 throw new ArgumentOutOfRangeException();
                         }
 
-                        GraphicsProcessor.DrawPolygon(ref _pixels, ref _zBuffer, ref _locks, ref polygon,
+                        GraphicsProcessor.FillPolygonColors(ref _colorsBuffer, ref _zBuffer, ref _locks, ref polygon,
                             ref screenVertices, ref model, ref camera, shadowProcessor, _lightVector
                         );
                     }
                 );
+
+                if (!WithBloom)
+                {
+                    Parallel.For(0, _colorsBuffer.Length, i =>
+                    {
+                        if (_cts is { IsCancellationRequested: true })
+                        {
+                            return;
+                        }
+
+                        Color color = GraphicsProcessor.ACESMapTone(_colorsBuffer[i]) * 255 * _colorsBuffer[i].Alpha;
+
+                        _pixels[bytesPerPixel * i] = (byte)Math.Min(color.Red, 255);
+                        _pixels[bytesPerPixel * i + 1] = (byte)Math.Min(color.Green, 255);
+                        _pixels[bytesPerPixel * i + 2] = (byte)Math.Min(color.Blue, 255);
+                    });
+                }
+                else
+                {
+                    if (_brightColorsBuffer.Length != size)
+                    {
+                        Array.Resize(ref _brightColorsBuffer, size);
+                    }
+
+                    Parallel.For(0, _colorsBuffer.Length, i =>
+                    {
+                        /*if (0.2126 * _colorsBuffer[i].Red + 0.7152 * _colorsBuffer[i].Green +
+                            0.0722 * _colorsBuffer[i].Blue > 1)*/
+                        if (0.299 * _colorsBuffer[i].Red + 0.587 * _colorsBuffer[i].Green +
+                            0.114 * _colorsBuffer[i].Blue > 1)
+                        {
+                            _brightColorsBuffer[i] = _colorsBuffer[i];
+                        }
+                        else
+                        {
+                            _brightColorsBuffer[i] = new Color(0);
+                        }
+                    });
+
+                    var m = _colorsBuffer.Average(c => c.Red + c.Green + c.Blue);
+                    var sum = _colorsBuffer.Sum(c => MathF.Pow(c.Red + c.Green + c.Blue - m, 2));
+                    var sigma = MathF.Sqrt(sum / (_colorsBuffer.Length - 1));
+
+                    var weights = new float[(int)Math.Round(sigma * 3)];
+                    for (var i = 0; i < weights.Length; i++)
+                    {
+                        weights[i] = 1 / MathF.Sqrt(2 * MathF.PI * sigma * sigma) *
+                                     MathF.Exp(-i * i / (2 * sigma * sigma));
+                    }
+
+                    Color[] buffer = new Color[_brightColorsBuffer.Length];
+
+                    _brightColorsBuffer.CopyTo(buffer, 0);
+
+                    Parallel.For(0, buffer.Length, offset =>
+                    {
+                        if (_cts is { IsCancellationRequested: true })
+                        {
+                            return;
+                        }
+
+                        buffer[offset] += _brightColorsBuffer[offset] * s_gaussianWeights[0];
+
+                        for (var j = 1; j < s_gaussianWeights.Length; j++)
+                        {
+                            var index = offset + j;
+
+                            if (index / ViewportWidth == offset / ViewportWidth &&
+                                index < _brightColorsBuffer.Length && index >= 0)
+                            {
+                                buffer[offset] += _brightColorsBuffer[index] * s_gaussianWeights[j];
+                            }
+
+                            index = offset - j;
+
+                            if (index / ViewportWidth == offset / ViewportWidth &&
+                                index < _brightColorsBuffer.Length && index >= 0)
+                            {
+                                buffer[offset] += _brightColorsBuffer[index] * s_gaussianWeights[j];
+                            }
+
+                            index = offset + j * ViewportWidth;
+
+                            if (index < _brightColorsBuffer.Length && index >= 0)
+                            {
+                                buffer[offset] += _brightColorsBuffer[index] * s_gaussianWeights[j];
+                            }
+
+                            index = offset - j * ViewportWidth;
+
+                            if (index < _brightColorsBuffer.Length && index >= 0)
+                            {
+                                buffer[offset] += _brightColorsBuffer[index] * s_gaussianWeights[j];
+                            }
+                        }
+                    });
+
+                    buffer.CopyTo(_brightColorsBuffer, 0);
+
+                    Parallel.For(0, _colorsBuffer.Length, i =>
+                    {
+                        if (_cts is { IsCancellationRequested: true })
+                        {
+                            return;
+                        }
+
+                        Color color = GraphicsProcessor.ACESMapTone(_colorsBuffer[i] + _brightColorsBuffer[i]) *
+                                      255 * _colorsBuffer[i].Alpha;
+
+                        _pixels[bytesPerPixel * i] = (byte)Math.Min(color.Red, 255);
+                        _pixels[bytesPerPixel * i + 1] = (byte)Math.Min(color.Green, 255);
+                        _pixels[bytesPerPixel * i + 2] = (byte)Math.Min(color.Blue, 255);
+                    });
+                }
             });
 
             if (_cts is { IsCancellationRequested: true })

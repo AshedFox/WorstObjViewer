@@ -19,8 +19,8 @@
                               Click="DiffuseTextureMenuItem_OnClick" />
                     <MenuItem Name="NormalTextureMenuItem" Header="Карта нормалей"
                               Click="NormalTextureMenuItem_OnClick" />
-                    <MenuItem Name="SpecularTextureMenuItem" Header="Зеркальная карта"
-                              Click="SpecularTextureMenuItem_OnClick" />
+                    <MenuItem Name="MRAOTextureMenuItem" Header="Карта MRAO"
+                              Click="MRAOTextureMenuItem_OnClick" />
                     <MenuItem Name="EmissionTextureMenuItem" Header="Карта излучения"
                               Click="EmissionTextureMenuItem_OnClick" />
                 </MenuItem>
@@ -35,7 +35,8 @@
                                   Click="ShadowPhongMenuItem_OnClick" />
                         <MenuItem Name="LightPhongMenuItem" Header="Фонг(освещение)" Click="LightPhongMenuItem_OnClick" />
                     </MenuItem>
-                    <MenuItem Header="Bloom-эффект" IsCheckable="True" />
+                    <MenuItem Name="BloomMenuItem" Header="Bloom-эффект" IsCheckable="True"
+                              Click="BloomMenuItem_OnClick" />
                 </MenuItem>
             </Menu>
         </DockPanel>

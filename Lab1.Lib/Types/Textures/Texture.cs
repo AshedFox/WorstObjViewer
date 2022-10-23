@@ -34,23 +34,24 @@ public class Texture
         {
             if (_bytesPerPixel == 4)
             {
-                var b = _colors[offset];
-                var g = _colors[offset + 1];
-                var r = _colors[offset + 2];
-                var a = _colors[offset + 3];
+                float b = _colors[offset];
+                float g = _colors[offset + 1];
+                float r = _colors[offset + 2];
+                float a = _colors[offset + 3];
 
-                return new Color(r, g, b, a);
+                return new Color(r / 255, g / 255, b / 255, a / 255);
             }
-            else if (_bytesPerPixel == 3)
-            {
-                var b = _colors[offset];
-                var g = _colors[offset + 1];
-                var r = _colors[offset + 2];
 
-                return new Color(r, g, b);
+            if (_bytesPerPixel == 3)
+            {
+                float b = _colors[offset];
+                float g = _colors[offset + 1];
+                float r = _colors[offset + 2];
+
+                return new Color(r / 255, g / 255, b / 255);
             }
         }
 
-        return new Color(255);
+        return new Color(1);
     }
 }
