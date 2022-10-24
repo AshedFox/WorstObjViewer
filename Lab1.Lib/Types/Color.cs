@@ -3,8 +3,14 @@
 
 namespace Lab1.Lib.Types;
 
-public struct Color
+public struct Color : IEquatable<Color>
 {
+    public bool Equals(Color other) => this == other;
+
+    public override bool Equals(object? obj) => obj is Color other && Equals(other);
+
+    public override int GetHashCode() => HashCode.Combine(Red, Green, Blue, Alpha);
+
     public Color(float value)
     {
         Red = value;
@@ -21,44 +27,35 @@ public struct Color
         Alpha = alpha;
     }
 
+    public static Color Zero => new(0);
+
     public float Red { get; set; }
     public float Green { get; set; }
     public float Blue { get; set; }
     public float Alpha { get; set; }
 
-    public static Color operator *(Color color, float multiplier)
-    {
-        color.Red = color.Red * multiplier;
-        color.Green = color.Green * multiplier;
-        color.Blue = color.Blue * multiplier;
+    public static Color operator *(Color left, float right) =>
+        new(left.Red * right, left.Green * right, left.Blue * right);
 
-        return color;
-    }
+    public static Color operator *(float left, Color right) => right * left;
 
-    public static Color operator /(Color color, float divider)
-    {
-        color.Red = color.Red / divider;
-        color.Green = color.Green / divider;
-        color.Blue = color.Blue / divider;
+    public static Color operator /(Color left, float right) =>
+        new(left.Red / right, left.Green / right, left.Blue / right);
 
-        return color;
-    }
+    public static Color operator /(float left, Color right) => right / left;
 
-    public static Color operator +(Color color1, Color color2)
-    {
-        color1.Red = color1.Red + color2.Red;
-        color1.Green = color1.Green + color2.Green;
-        color1.Blue = color1.Blue + color2.Blue;
+    public static Color operator +(Color left, Color right) =>
+        new(left.Red + right.Red, left.Green + right.Green, left.Blue + right.Blue);
 
-        return color1;
-    }
+    public static Color operator -(Color left, Color right) =>
+        new(left.Red - right.Red, left.Green - right.Green, left.Blue - right.Blue);
 
-    public static Color operator -(Color color1, Color color2)
-    {
-        color1.Red = color1.Red - color2.Red;
-        color1.Green = color1.Green - color2.Green;
-        color1.Blue = color1.Blue - color2.Blue;
+    public static bool operator ==(Color color1, Color color2) => color1.Red == color2.Red &&
+                                                                  color1.Green == color2.Green &&
+                                                                  color1.Blue == color2.Blue &&
+                                                                  color1.Alpha == color2.Alpha;
 
-        return color1;
-    }
+    public static bool operator !=(Color color1, Color color2) => !(color1 == color2);
+
+    public override string ToString() => $"RED: {Red}, GREEN: {Green}, BLUE: {Blue};";
 }

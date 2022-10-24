@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System.Diagnostics;
+using System.Numerics;
 using Lab1.Lib.Helpers.Shadow;
 using Lab1.Lib.Types;
 using Lab1.Lib.Types.Primitives;
@@ -401,7 +402,7 @@ public static class GraphicsProcessor
 
                             if (model.EmissionTexture is not null)
                             {
-                                color += model.EmissionTexture.MakeColor(texture);
+                                color += 5 * model.EmissionTexture.MakeColor(texture);
                             }
 
                             FillColorWithScanline(ref colorsBuffer, ref zBuffer, ref locks, ref ends, x, y,
@@ -415,9 +416,5 @@ public static class GraphicsProcessor
                     throw new ArgumentOutOfRangeException(nameof(shadowProcessor));
             }
         }
-    }
-
-    public static void GaussianBlur(ref Color[] colorsBuffer)
-    {
     }
 }

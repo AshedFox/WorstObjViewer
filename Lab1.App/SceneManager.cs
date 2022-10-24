@@ -89,7 +89,7 @@ public class SceneManager
         MainCamera = new Camera(width, height, 80.0f, GraphicsProcessor.ConvertDegreesToRadians(45),
             1f, 2000.0f
         );
-        ShadowType = ShadowType.Lambert;
+        ShadowType = ShadowType.PhongLight;
         MainCamera.Change += AddFrame;
 
         AddFrame();
@@ -284,12 +284,12 @@ public class SceneManager
 
                         Color color = GraphicsProcessor.ACESMapTone(_colorsBuffer[i]) * 255 * _colorsBuffer[i].Alpha;
 
-                        _pixels[bytesPerPixel * i] = (byte)Math.Min(color.Red, 255);
-                        _pixels[bytesPerPixel * i + 1] = (byte)Math.Min(color.Green, 255);
-                        _pixels[bytesPerPixel * i + 2] = (byte)Math.Min(color.Blue, 255);
+                        _pixels[bytesPerPixel * i] = (byte)color.Red;
+                        _pixels[bytesPerPixel * i + 1] = (byte)color.Green;
+                        _pixels[bytesPerPixel * i + 2] = (byte)color.Blue;
                     });
                 }
-                else
+                else if (model.EmissionTexture is not null)
                 {
                     if (_brightColorsBuffer.Length != size)
                     {
@@ -298,10 +298,10 @@ public class SceneManager
 
                     Parallel.For(0, _colorsBuffer.Length, i =>
                     {
-                        /*if (0.2126 * _colorsBuffer[i].Red + 0.7152 * _colorsBuffer[i].Green +
-                            0.0722 * _colorsBuffer[i].Blue > 1)*/
-                        if (0.299 * _colorsBuffer[i].Red + 0.587 * _colorsBuffer[i].Green +
-                            0.114 * _colorsBuffer[i].Blue > 1)
+                        if (0.2126 * _colorsBuffer[i].Red + 0.7152 * _colorsBuffer[i].Green +
+                            0.0722 * _colorsBuffer[i].Blue > 1)
+                            /*if (0.299 * _colorsBuffer[i].Red + 0.587 * _colorsBuffer[i].Green +
+                                0.114 * _colorsBuffer[i].Blue > 1)*/
                         {
                             _brightColorsBuffer[i] = _colorsBuffer[i];
                         }
@@ -311,65 +311,83 @@ public class SceneManager
                         }
                     });
 
-                    var m = _colorsBuffer.Average(c => c.Red + c.Green + c.Blue);
-                    var sum = _colorsBuffer.Sum(c => MathF.Pow(c.Red + c.Green + c.Blue - m, 2));
-                    var sigma = MathF.Sqrt(sum / (_colorsBuffer.Length - 1));
+                    /*Color[] colors = _brightColorsBuffer.Where(c => c != Color.Zero)
+                        .ToArray();
+                    var m = colors.Average(c => c.Red + c.Green + c.Blue);
+                    var sum = colors.Sum(c => MathF.Pow(c.Red + c.Green + c.Blue - m, 2));
+                    var sigma = MathF.Sqrt(sum / (colors.Length - 1));
 
                     var weights = new float[(int)Math.Round(sigma * 3)];
                     for (var i = 0; i < weights.Length; i++)
                     {
                         weights[i] = 1 / MathF.Sqrt(2 * MathF.PI * sigma * sigma) *
                                      MathF.Exp(-i * i / (2 * sigma * sigma));
-                    }
+                    }*/
 
                     Color[] buffer = new Color[_brightColorsBuffer.Length];
 
-                    _brightColorsBuffer.CopyTo(buffer, 0);
-
-                    Parallel.For(0, buffer.Length, offset =>
+                    for (var i = 0; i < 5; i++)
                     {
-                        if (_cts is { IsCancellationRequested: true })
+                        Parallel.For(0, buffer.Length, offset =>
                         {
-                            return;
-                        }
+                            if (_cts is { IsCancellationRequested: true })
+                            {
+                                return;
+                            }
 
-                        buffer[offset] += _brightColorsBuffer[offset] * s_gaussianWeights[0];
+                            buffer[offset] = _brightColorsBuffer[offset] * s_gaussianWeights[0];
 
-                        for (var j = 1; j < s_gaussianWeights.Length; j++)
+                            for (var j = 1; j < s_gaussianWeights.Length; j++)
+                            {
+                                var index = offset + j;
+
+                                if (index / ViewportWidth == offset / ViewportWidth &&
+                                    index < _brightColorsBuffer.Length && index >= 0)
+                                {
+                                    buffer[offset] += _brightColorsBuffer[index] * s_gaussianWeights[j];
+                                }
+
+                                index = offset - j;
+
+                                if (index / ViewportWidth == offset / ViewportWidth &&
+                                    index < _brightColorsBuffer.Length && index >= 0)
+                                {
+                                    buffer[offset] += _brightColorsBuffer[index] * s_gaussianWeights[j];
+                                }
+                            }
+                        });
+
+                        buffer.CopyTo(_brightColorsBuffer, 0);
+
+                        Parallel.For(0, buffer.Length, offset =>
                         {
-                            var index = offset + j;
-
-                            if (index / ViewportWidth == offset / ViewportWidth &&
-                                index < _brightColorsBuffer.Length && index >= 0)
+                            if (_cts is { IsCancellationRequested: true })
                             {
-                                buffer[offset] += _brightColorsBuffer[index] * s_gaussianWeights[j];
+                                return;
                             }
 
-                            index = offset - j;
+                            buffer[offset] = _brightColorsBuffer[offset] * s_gaussianWeights[0];
 
-                            if (index / ViewportWidth == offset / ViewportWidth &&
-                                index < _brightColorsBuffer.Length && index >= 0)
+                            for (var j = 1; j < s_gaussianWeights.Length; j++)
                             {
-                                buffer[offset] += _brightColorsBuffer[index] * s_gaussianWeights[j];
+                                var index = offset + j * ViewportWidth;
+
+                                if (index < _brightColorsBuffer.Length && index >= 0)
+                                {
+                                    buffer[offset] += _brightColorsBuffer[index] * s_gaussianWeights[j];
+                                }
+
+                                index = offset - j * ViewportWidth;
+
+                                if (index < _brightColorsBuffer.Length && index >= 0)
+                                {
+                                    buffer[offset] += _brightColorsBuffer[index] * s_gaussianWeights[j];
+                                }
                             }
+                        });
 
-                            index = offset + j * ViewportWidth;
-
-                            if (index < _brightColorsBuffer.Length && index >= 0)
-                            {
-                                buffer[offset] += _brightColorsBuffer[index] * s_gaussianWeights[j];
-                            }
-
-                            index = offset - j * ViewportWidth;
-
-                            if (index < _brightColorsBuffer.Length && index >= 0)
-                            {
-                                buffer[offset] += _brightColorsBuffer[index] * s_gaussianWeights[j];
-                            }
-                        }
-                    });
-
-                    buffer.CopyTo(_brightColorsBuffer, 0);
+                        buffer.CopyTo(_brightColorsBuffer, 0);
+                    }
 
                     Parallel.For(0, _colorsBuffer.Length, i =>
                     {
@@ -378,12 +396,12 @@ public class SceneManager
                             return;
                         }
 
-                        Color color = GraphicsProcessor.ACESMapTone(_colorsBuffer[i] + _brightColorsBuffer[i]) *
-                                      255 * _colorsBuffer[i].Alpha;
+                        Color color = GraphicsProcessor.ACESMapTone(_colorsBuffer[i] + _brightColorsBuffer[i])
+                                      * 255 * _colorsBuffer[i].Alpha;
 
-                        _pixels[bytesPerPixel * i] = (byte)Math.Min(color.Red, 255);
-                        _pixels[bytesPerPixel * i + 1] = (byte)Math.Min(color.Green, 255);
-                        _pixels[bytesPerPixel * i + 2] = (byte)Math.Min(color.Blue, 255);
+                        _pixels[bytesPerPixel * i] = (byte)color.Red;
+                        _pixels[bytesPerPixel * i + 1] = (byte)color.Green;
+                        _pixels[bytesPerPixel * i + 2] = (byte)color.Blue;
                     });
                 }
             });
