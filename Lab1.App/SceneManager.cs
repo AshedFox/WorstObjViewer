@@ -26,11 +26,6 @@ public class SceneManager
     private const int FramesPerSecond = 60;
     private const double FramePeriod = 1000d / FramesPerSecond;
 
-    private static readonly float[] s_gaussianWeights =
-    {
-        0.2270270270f, 0.1945945946f, 0.1216216216f, 0.0540540541f, 0.0162162162f
-    };
-
     private readonly Vector3 _lightVector = Vector3.Normalize(new Vector3(-1f, -1f, -1f));
     private readonly SemaphoreSlim _semaphore = new(1, 1);
     private readonly PeriodicTimer _timer;
@@ -300,8 +295,6 @@ public class SceneManager
                     {
                         if (0.2126 * _colorsBuffer[i].Red + 0.7152 * _colorsBuffer[i].Green +
                             0.0722 * _colorsBuffer[i].Blue > 1)
-                            /*if (0.299 * _colorsBuffer[i].Red + 0.587 * _colorsBuffer[i].Green +
-                                0.114 * _colorsBuffer[i].Blue > 1)*/
                         {
                             _brightColorsBuffer[i] = _colorsBuffer[i];
                         }
@@ -311,22 +304,17 @@ public class SceneManager
                         }
                     });
 
-                    /*Color[] colors = _brightColorsBuffer.Where(c => c != Color.Zero)
-                        .ToArray();
-                    var m = colors.Average(c => c.Red + c.Green + c.Blue);
-                    var sum = colors.Sum(c => MathF.Pow(c.Red + c.Green + c.Blue - m, 2));
-                    var sigma = MathF.Sqrt(sum / (colors.Length - 1));
-
-                    var weights = new float[(int)Math.Round(sigma * 3)];
+                    var sigma = 10;
+                    var weights = new float[6 * sigma + 1];
                     for (var i = 0; i < weights.Length; i++)
                     {
                         weights[i] = 1 / MathF.Sqrt(2 * MathF.PI * sigma * sigma) *
-                                     MathF.Exp(-i * i / (2 * sigma * sigma));
-                    }*/
+                                     MathF.Exp(-i * i / (2f * sigma * sigma));
+                    }
 
                     Color[] buffer = new Color[_brightColorsBuffer.Length];
 
-                    for (var i = 0; i < 5; i++)
+                    for (var i = 0; i < 1; i++)
                     {
                         Parallel.For(0, buffer.Length, offset =>
                         {
@@ -335,16 +323,16 @@ public class SceneManager
                                 return;
                             }
 
-                            buffer[offset] = _brightColorsBuffer[offset] * s_gaussianWeights[0];
+                            buffer[offset] = _brightColorsBuffer[offset] * weights[0];
 
-                            for (var j = 1; j < s_gaussianWeights.Length; j++)
+                            for (var j = 1; j < weights.Length; j++)
                             {
                                 var index = offset + j;
 
                                 if (index / ViewportWidth == offset / ViewportWidth &&
                                     index < _brightColorsBuffer.Length && index >= 0)
                                 {
-                                    buffer[offset] += _brightColorsBuffer[index] * s_gaussianWeights[j];
+                                    buffer[offset] += _brightColorsBuffer[index] * weights[j];
                                 }
 
                                 index = offset - j;
@@ -352,7 +340,7 @@ public class SceneManager
                                 if (index / ViewportWidth == offset / ViewportWidth &&
                                     index < _brightColorsBuffer.Length && index >= 0)
                                 {
-                                    buffer[offset] += _brightColorsBuffer[index] * s_gaussianWeights[j];
+                                    buffer[offset] += _brightColorsBuffer[index] * weights[j];
                                 }
                             }
                         });
@@ -366,22 +354,22 @@ public class SceneManager
                                 return;
                             }
 
-                            buffer[offset] = _brightColorsBuffer[offset] * s_gaussianWeights[0];
+                            buffer[offset] = _brightColorsBuffer[offset] * weights[0];
 
-                            for (var j = 1; j < s_gaussianWeights.Length; j++)
+                            for (var j = 1; j < weights.Length; j++)
                             {
                                 var index = offset + j * ViewportWidth;
 
                                 if (index < _brightColorsBuffer.Length && index >= 0)
                                 {
-                                    buffer[offset] += _brightColorsBuffer[index] * s_gaussianWeights[j];
+                                    buffer[offset] += _brightColorsBuffer[index] * weights[j];
                                 }
 
                                 index = offset - j * ViewportWidth;
 
                                 if (index < _brightColorsBuffer.Length && index >= 0)
                                 {
-                                    buffer[offset] += _brightColorsBuffer[index] * s_gaussianWeights[j];
+                                    buffer[offset] += _brightColorsBuffer[index] * weights[j];
                                 }
                             }
                         });

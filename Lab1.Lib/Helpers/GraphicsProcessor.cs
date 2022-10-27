@@ -402,7 +402,7 @@ public static class GraphicsProcessor
 
                             if (model.EmissionTexture is not null)
                             {
-                                color += 5 * model.EmissionTexture.MakeColor(texture);
+                                color += 10 * model.EmissionTexture.MakeColor(texture);
                             }
 
                             FillColorWithScanline(ref colorsBuffer, ref zBuffer, ref locks, ref ends, x, y,
