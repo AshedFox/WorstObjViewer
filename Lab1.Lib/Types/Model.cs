@@ -13,7 +13,7 @@ public class Model
     {
         Pivot = Pivot.CreateBasePivot(Vector3.Zero);
 
-        LocalVertices = vertices.ToArray();
+        LocalVertices = [.. vertices];
 
         var minX = float.MaxValue;
         var maxX = float.MinValue;
@@ -22,7 +22,7 @@ public class Model
         var minZ = float.MaxValue;
         var maxZ = float.MinValue;
 
-        foreach (Vector3 localVertex in LocalVertices)
+        foreach (var localVertex in LocalVertices)
         {
             if (localVertex.X < minX)
             {
@@ -59,10 +59,10 @@ public class Model
 
         Pivot.Scale(scale);
 
-        WorldVertices = LocalVertices.Select(v => Pivot.ToWorldCoords(v)).ToArray();
-        TexturesVertices = texturesVertices.ToArray();
-        Normals = normals.ToArray();
-        Polygons = polygons.ToArray();
+        WorldVertices = [.. LocalVertices.Select(v => Pivot.ToWorldCoords(v))];
+        TexturesVertices = [.. texturesVertices];
+        Normals = [.. normals];
+        Polygons = [.. polygons];
     }
 
     public Pivot Pivot { get; }

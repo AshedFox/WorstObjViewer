@@ -5,20 +5,12 @@ using System.Numerics;
 
 namespace Lab1.Lib.Types.Textures;
 
-public class Texture
+public class Texture(byte[] colors, int width, int height, int bytesPerPixel)
 {
-    private readonly int _bytesPerPixel;
-    private readonly byte[] _colors;
-    private readonly int _height;
-    private readonly int _width;
-
-    public Texture(byte[] colors, int width, int height, int bytesPerPixel)
-    {
-        _colors = colors;
-        _width = width;
-        _height = height;
-        _bytesPerPixel = bytesPerPixel;
-    }
+    private readonly int _bytesPerPixel = bytesPerPixel;
+    private readonly byte[] _colors = colors;
+    private readonly int _height = height;
+    private readonly int _width = width;
 
     public Color MakeColor(Vector2 uv)
     {

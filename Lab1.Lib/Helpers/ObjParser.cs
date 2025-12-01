@@ -7,85 +7,74 @@ namespace Lab1.Lib.Helpers;
 
 public static class ObjParser
 {
-    private static Vector3 ParseV(string line)
+    public static Model FromObjFile(string[] lines)
     {
-        var values = line.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).Take(3).ToArray();
-        return new Vector3
-        {
-            X = float.Parse(values[0], NumberStyles.Any, CultureInfo.InvariantCulture),
-            Y = float.Parse(values[1], NumberStyles.Any, CultureInfo.InvariantCulture),
-            Z = float.Parse(values[2], NumberStyles.Any, CultureInfo.InvariantCulture)
-        };
-    }
+        List<Vector3> vertices = [];
+        List<Vector2> texturesVertices = [];
+        List<Vector3> normals = [];
+        List<Polygon> polygons = [];
 
-    private static Vector2 ParseVt(string line)
-    {
-        var values = line.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).Take(3).ToArray();
-        return new Vector2
+        foreach (var lineStr in lines)
         {
-            X = float.Parse(values[0], NumberStyles.Any, CultureInfo.InvariantCulture),
-            Y = float.Parse(values.ElementAtOrDefault(1) ?? "0", NumberStyles.Any, CultureInfo.InvariantCulture)
-        };
-    }
-
-    private static Vector3 ParseVn(string line)
-    {
-        var values = line.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).Take(3).ToArray();
-        return new Vector3
-        {
-            X = float.Parse(values[0], NumberStyles.Any, CultureInfo.InvariantCulture),
-            Y = float.Parse(values[1], NumberStyles.Any, CultureInfo.InvariantCulture),
-            Z = float.Parse(values[2], NumberStyles.Any, CultureInfo.InvariantCulture)
-        };
-    }
-
-    private static List<Polygon.Point> ParseF(string line)
-    {
-        List<Polygon.Point> result = new();
-        var values = line.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).ToArray();
-        foreach (var value in values)
-        {
-            var subValues = value.Split('/', StringSplitOptions.RemoveEmptyEntries).Take(3).ToArray();
-            Polygon.Point polyPoint = new()
+            var line = lineStr.AsSpan().Trim();
+            if (line.IsEmpty || line.IsWhiteSpace())
             {
-                VertexIndex = int.Parse(subValues[0]),
-                TextureIndex = int.Parse(subValues[1]),
-                NormalIndex = int.Parse(subValues[2])
-            };
+                continue;
+            }
 
-            result.Add(polyPoint);
-        }
-
-        return result;
-    }
-
-    public static Model FromObjFile(IEnumerable<string> lines)
-    {
-        List<Vector3> vertices = new();
-        List<Vector2> texturesVertices = new();
-        List<Vector3> normals = new();
-        List<Polygon> polygons = new();
-
-        foreach (var line in lines)
-        {
             if (line.StartsWith("vt "))
             {
-                texturesVertices.Add(ParseVt(line));
+                var firstSpace = line.IndexOf(' ');
+                var content = line.Slice(firstSpace + 1).Trim();
+
+                var values = ParseSpans(content);
+                texturesVertices.Add(new Vector2(values[0], values.Length > 1 ? values[1] : 0));
             }
             else if (line.StartsWith("vn "))
             {
-                normals.Add(ParseVn(line));
+                var firstSpace = line.IndexOf(' ');
+                var values = ParseSpans(line.Slice(firstSpace + 1));
+                normals.Add(new Vector3(values[0], values[1], values[2]));
             }
             else if (line.StartsWith("v "))
             {
-                vertices.Add(ParseV(line));
+                var firstSpace = line.IndexOf(' ');
+                var values = ParseSpans(line.Slice(firstSpace + 1));
+                vertices.Add(new Vector3(values[0], values[1], values[2]));
             }
             else if (line.StartsWith("f "))
             {
-                polygons.Add(new Polygon(ParseF(line)));
+                polygons.Add(ParseFace(line));
             }
         }
 
         return new Model(vertices, texturesVertices, normals, polygons);
+    }
+
+    private static float[] ParseSpans(ReadOnlySpan<char> span)
+    {
+        var parts = span.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var res = new float[parts.Length];
+        for (var i = 0; i < parts.Length; i++) res[i] = float.Parse(parts[i], CultureInfo.InvariantCulture);
+        return res;
+    }
+
+    private static Polygon ParseFace(ReadOnlySpan<char> line)
+    {
+        List<Polygon.Point> points = [];
+        var firstSpace = line.IndexOf(' ');
+        var parts = line.Slice(firstSpace + 1).ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var part in parts)
+        {
+            var indices = part.Split('/');
+            points.Add(new Polygon.Point
+            {
+                VertexIndex = int.Parse(indices[0]),
+                TextureIndex = indices.Length > 1 && indices[1].Length > 0 ? int.Parse(indices[1]) : 0,
+                NormalIndex = indices.Length > 2 ? int.Parse(indices[2]) : 0
+            });
+        }
+        return new Polygon(points);
     }
 }

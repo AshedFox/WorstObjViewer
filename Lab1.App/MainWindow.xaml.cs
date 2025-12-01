@@ -45,7 +45,7 @@ public partial class MainWindow : Window
         {
             if (e.LeftButton == MouseButtonState.Pressed)
             {
-                Point endPoint = e.GetPosition(ModelCanvas);
+                var endPoint = e.GetPosition(ModelCanvas);
                 Vector2 point = new((float)endPoint.X, (float)endPoint.Y);
                 var dx = Math.Abs(point.X - TempPoint.X);
                 var dy = Math.Abs(point.Y - TempPoint.Y);
@@ -74,7 +74,7 @@ public partial class MainWindow : Window
             }
             else if (e.MiddleButton == MouseButtonState.Pressed)
             {
-                Point endPoint = e.GetPosition(ModelCanvas);
+                var endPoint = e.GetPosition(ModelCanvas);
                 Vector2 point = new((float)endPoint.X, (float)endPoint.Y);
                 var dx = Math.Abs(point.X - TempPoint.X);
                 var dy = Math.Abs(point.Y - TempPoint.Y);
@@ -113,7 +113,7 @@ public partial class MainWindow : Window
         if (e.LeftButton == MouseButtonState.Pressed || e.MiddleButton == MouseButtonState.Pressed)
         {
             IsMoving = true;
-            Point position = e.GetPosition(ModelCanvas);
+            var position = e.GetPosition(ModelCanvas);
             TempPoint = new Vector2((float)position.X, (float)position.Y);
         }
     }
@@ -171,7 +171,7 @@ public partial class MainWindow : Window
     private void BloomMenuItem_OnClick(object sender, RoutedEventArgs e) =>
         SceneManager.ChangeBloom(!SceneManager.WithBloom);
 
-    private BitmapSource? ReadImage()
+    private static BitmapFrame? ReadImage()
     {
         OpenFileDialog openFileDialog = new() { Filter = "Image (*.jpg;*.jpeg;*.png)|*.jpg;*.jpeg;*.png" };
         if (openFileDialog.ShowDialog() == true)
@@ -209,7 +209,7 @@ public partial class MainWindow : Window
     {
         if (SceneManager.Model != null)
         {
-            BitmapSource? bitmapSource = ReadImage();
+            var bitmapSource = ReadImage();
             if (bitmapSource is not null)
             {
                 var width = bitmapSource.PixelWidth;
@@ -229,7 +229,7 @@ public partial class MainWindow : Window
     {
         if (SceneManager.Model != null)
         {
-            BitmapSource? bitmapSource = ReadImage();
+            var bitmapSource = ReadImage();
             if (bitmapSource is not null)
             {
                 var width = bitmapSource.PixelWidth;
@@ -248,7 +248,7 @@ public partial class MainWindow : Window
     {
         if (SceneManager.Model != null)
         {
-            BitmapSource? bitmapSource = ReadImage();
+            var bitmapSource = ReadImage();
             if (bitmapSource is not null)
             {
                 var width = bitmapSource.PixelWidth;
@@ -267,7 +267,7 @@ public partial class MainWindow : Window
     {
         if (SceneManager.Model != null)
         {
-            BitmapSource? bitmapSource = ReadImage();
+            var bitmapSource = ReadImage();
             if (bitmapSource is not null)
             {
                 var width = bitmapSource.PixelWidth;

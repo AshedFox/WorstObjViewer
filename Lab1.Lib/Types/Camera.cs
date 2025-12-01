@@ -7,30 +7,19 @@ using Lab1.Lib.Types.Primitives;
 
 namespace Lab1.Lib.Types;
 
-public class Camera
+public class Camera(int viewportWidth, int viewportHeight, float distance,
+    float fieldOfView, float nearPlane, float farPlane)
 {
     public delegate void ChangeHandler();
 
     private readonly float _maxDistance = 500f;
-    private readonly float _minDistance = 10f;
+    private readonly float _minDistance = 0.01f;
 
     private float _speed = 1.0f;
 
-    public Camera(int viewportWidth, int viewportHeight, float distance,
-        float fieldOfView, float nearPlane, float farPlane)
-    {
-        Pivot = Pivot.CreateBasePivot(new Vector3(0, 0, distance));
-        ViewportWidth = viewportWidth;
-        ViewportHeight = viewportHeight;
-        Distance = distance;
-        FieldOfView = fieldOfView;
-        NearPlane = nearPlane;
-        FarPlane = farPlane;
-    }
-
-    public Pivot Pivot { get; set; }
-    public int ViewportWidth { get; set; }
-    public int ViewportHeight { get; set; }
+    public Pivot Pivot { get; set; } = Pivot.CreateBasePivot(new Vector3(0, 0, distance));
+    public int ViewportWidth { get; set; } = viewportWidth;
+    public int ViewportHeight { get; set; } = viewportHeight;
 
     public float Speed
     {
@@ -38,12 +27,12 @@ public class Camera
         set => _speed = Math.Clamp(value, 1, 20);
     }
 
-    public float Distance { get; set; }
+    public float Distance { get; set; } = distance;
 
     public float Aspect => (float)ViewportWidth / ViewportHeight;
-    public float FieldOfView { get; set; }
-    public float NearPlane { get; set; }
-    public float FarPlane { get; set; }
+    public float FieldOfView { get; set; } = fieldOfView;
+    public float NearPlane { get; set; } = nearPlane;
+    public float FarPlane { get; set; } = farPlane;
     public float PolarAngle { get; set; }
     public float AzimuthalAngle { get; set; }
 

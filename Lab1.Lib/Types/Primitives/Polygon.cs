@@ -3,11 +3,9 @@
 
 namespace Lab1.Lib.Types.Primitives;
 
-public class Polygon
+public class Polygon(IEnumerable<Polygon.Point> points)
 {
-    public Polygon(IEnumerable<Point> points) => Points = points.ToArray();
-
-    public Point[] Points { get; }
+    public Point[] Points { get; } = [.. points];
 
     public class Point
     {

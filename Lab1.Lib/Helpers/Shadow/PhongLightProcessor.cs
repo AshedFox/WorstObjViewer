@@ -6,20 +6,12 @@ using Lab1.Lib.Types;
 
 namespace Lab1.Lib.Helpers.Shadow;
 
-public class PhongLightProcessor : IShadowProcessor
+public class PhongLightProcessor(float ambientFactor, float diffuseFactor, float specularFactor, float shininess) : IShadowProcessor
 {
-    public readonly float AmbientFactor;
-    public readonly float DiffuseFactor;
-    public readonly float Shininess;
-    public readonly float SpecularFactor;
-
-    public PhongLightProcessor(float ambientFactor, float diffuseFactor, float specularFactor, float shininess)
-    {
-        AmbientFactor = Math.Clamp(ambientFactor, 0, 1);
-        DiffuseFactor = Math.Clamp(diffuseFactor, 0, 1);
-        SpecularFactor = Math.Clamp(specularFactor, 0, 1);
-        Shininess = shininess;
-    }
+    public readonly float AmbientFactor = Math.Clamp(ambientFactor, 0, 1);
+    public readonly float DiffuseFactor = Math.Clamp(diffuseFactor, 0, 1);
+    public readonly float Shininess = shininess;
+    public readonly float SpecularFactor = Math.Clamp(specularFactor, 0, 1);
 
     public Vector3 Normal { get; set; } = Vector3.Zero;
     public Vector3 Light { get; set; } = Vector3.Zero;

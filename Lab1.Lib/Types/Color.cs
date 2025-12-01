@@ -5,11 +5,11 @@ namespace Lab1.Lib.Types;
 
 public struct Color : IEquatable<Color>
 {
-    public bool Equals(Color other) => this == other;
+    public readonly bool Equals(Color other) => this == other;
 
-    public override bool Equals(object? obj) => obj is Color other && Equals(other);
+    public override readonly bool Equals(object? obj) => obj is Color other && Equals(other);
 
-    public override int GetHashCode() => HashCode.Combine(Red, Green, Blue, Alpha);
+    public override readonly int GetHashCode() => HashCode.Combine(Red, Green, Blue, Alpha);
 
     public Color(float value)
     {
@@ -57,5 +57,5 @@ public struct Color : IEquatable<Color>
 
     public static bool operator !=(Color color1, Color color2) => !(color1 == color2);
 
-    public override string ToString() => $"RED: {Red}, GREEN: {Green}, BLUE: {Blue};";
+    public override readonly string ToString() => $"RED: {Red}, GREEN: {Green}, BLUE: {Blue};";
 }

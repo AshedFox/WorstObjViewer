@@ -5,20 +5,12 @@ using System.Numerics;
 
 namespace Lab1.Lib.Types.Primitives;
 
-public class Pivot
+public class Pivot(Vector3 position, Vector3 xAxis, Vector3 yAxis, Vector3 zAxis)
 {
-    public Pivot(Vector3 position, Vector3 xAxis, Vector3 yAxis, Vector3 zAxis)
-    {
-        Position = position;
-        XAxis = xAxis;
-        YAxis = yAxis;
-        ZAxis = zAxis;
-    }
-
-    public Vector3 Position { get; set; }
-    public Vector3 XAxis { get; set; }
-    public Vector3 YAxis { get; set; }
-    public Vector3 ZAxis { get; set; }
+    public Vector3 Position { get; set; } = position;
+    public Vector3 XAxis { get; set; } = xAxis;
+    public Vector3 YAxis { get; set; } = yAxis;
+    public Vector3 ZAxis { get; set; } = zAxis;
 
     public Matrix4x4 LocalMatrix => new(
         XAxis.X, YAxis.X, ZAxis.X, 0,

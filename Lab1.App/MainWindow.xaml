@@ -5,69 +5,105 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         x:Name="Window"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800" WindowState="Maximized">
+        Title="MainWindow"
+        Height="450"
+        Width="800"
+        WindowState="Maximized">
     <Grid DataContext="{Binding Lab1.App.MainWindow}">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         <DockPanel>
             <Menu>
-                <MenuItem Name="OpenFileMenuItem" Header="Файл" Click="OpenFileMenuItem_OnClick" />
+                <MenuItem Name="OpenFileMenuItem"
+                          Header="Файл"
+                          Click="OpenFileMenuItem_OnClick"/>
                 <MenuItem Header="Изменить">
-                    <MenuItem Name="DiffuseTextureMenuItem" Header="Диффузная карта"
-                              Click="DiffuseTextureMenuItem_OnClick" />
-                    <MenuItem Name="NormalTextureMenuItem" Header="Карта нормалей"
-                              Click="NormalTextureMenuItem_OnClick" />
-                    <MenuItem Name="MRAOTextureMenuItem" Header="Карта MRAO"
-                              Click="MRAOTextureMenuItem_OnClick" />
-                    <MenuItem Name="EmissionTextureMenuItem" Header="Карта излучения"
-                              Click="EmissionTextureMenuItem_OnClick" />
+                    <MenuItem Name="DiffuseTextureMenuItem"
+                              Header="Диффузная карта"
+                              Click="DiffuseTextureMenuItem_OnClick"/>
+                    <MenuItem Name="NormalTextureMenuItem"
+                              Header="Карта нормалей"
+                              Click="NormalTextureMenuItem_OnClick"/>
+                    <MenuItem Name="MRAOTextureMenuItem"
+                              Header="Карта MRAO"
+                              Click="MRAOTextureMenuItem_OnClick"/>
+                    <MenuItem Name="EmissionTextureMenuItem"
+                              Header="Карта излучения"
+                              Click="EmissionTextureMenuItem_OnClick"/>
                 </MenuItem>
-                <MenuItem Name="ResetCameraMenuItem" Header="Сбросить положение камеры"
-                          Click="ResetCameraMenuItem_OnClick" />
+                <MenuItem Name="ResetCameraMenuItem"
+                          Header="Сбросить положение камеры"
+                          Click="ResetCameraMenuItem_OnClick"/>
                 <MenuItem Header="Параметры">
                     <MenuItem Header="Затенение">
-                        <MenuItem Name="ShadowNoneMenuItem" Header="Нет" Click="ShadowNoneMenuItem_OnClick" />
-                        <MenuItem Name="ShadowLambertMenuItem" Header="Ламберт" Click="ShadowLambertMenuItem_OnClick" />
-                        <MenuItem Name="ShadowGurouMenuItem" Header="Гуро" Click="ShadowGouraudMenuItem_OnClick" />
-                        <MenuItem Name="ShadowPhongMenuItem" Header="Фонг(затенение)"
-                                  Click="ShadowPhongMenuItem_OnClick" />
-                        <MenuItem Name="LightPhongMenuItem" Header="Фонг(освещение)" Click="LightPhongMenuItem_OnClick" />
+                        <MenuItem Name="ShadowNoneMenuItem"
+                                  Header="Нет"
+                                  Click="ShadowNoneMenuItem_OnClick"/>
+                        <MenuItem Name="ShadowLambertMenuItem"
+                                  Header="Ламберт"
+                                  Click="ShadowLambertMenuItem_OnClick"/>
+                        <MenuItem Name="ShadowGurouMenuItem"
+                                  Header="Гуро"
+                                  Click="ShadowGouraudMenuItem_OnClick"/>
+                        <MenuItem Name="ShadowPhongMenuItem"
+                                  Header="Фонг(затенение)"
+                                  Click="ShadowPhongMenuItem_OnClick"/>
+                        <MenuItem Name="LightPhongMenuItem"
+                                  Header="Фонг(освещение)"
+                                  Click="LightPhongMenuItem_OnClick"/>
                     </MenuItem>
-                    <MenuItem Name="BloomMenuItem" Header="Bloom-эффект" IsCheckable="True"
-                              Click="BloomMenuItem_OnClick" />
+                    <MenuItem Name="BloomMenuItem"
+                              Header="Bloom-эффект"
+                              IsCheckable="True"
+                              Click="BloomMenuItem_OnClick"/>
                 </MenuItem>
             </Menu>
         </DockPanel>
         <Grid Grid.Row="1">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
-            <Grid Margin="2" VerticalAlignment="Center">
+            <Grid Margin="2"
+                  VerticalAlignment="Center">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <Label Grid.Column="0" Content="Скорость камеры" />
-                <Slider Grid.Column="1" Name="CameraSpeedSlider" Minimum="1" Maximum="20" Interval="1" Value="1"
+                <Label Grid.Column="0"
+                       Content="Скорость камеры"/>
+                <Slider Grid.Column="1"
+                        Name="CameraSpeedSlider"
+                        Minimum="1"
+                        Maximum="20"
+                        Interval="1"
+                        Value="1"
                         TickPlacement="BottomRight"
-                        TickFrequency="1" IsSnapToTickEnabled="True"
-                        ValueChanged="CameraSpeedSlider_OnValueChanged" />
+                        TickFrequency="1"
+                        IsSnapToTickEnabled="True"
+                        ValueChanged="CameraSpeedSlider_OnValueChanged"/>
                 <Label Grid.Column="2"
                        Content="{Binding ElementName=CameraSpeedSlider, Path=Value, UpdateSourceTrigger=PropertyChanged}"
-                       Width="40" />
+                       Width="40"/>
             </Grid>
 
-            <Grid Grid.Row="1" Background="Gainsboro" Name="ModelCanvas" MouseMove="ModelCanvas_OnMouseMove"
-                  SizeChanged="ModelCanvas_OnSizeChanged" MouseDown="ModelCanvas_OnMouseDown"
-                  MouseWheel="ModelCanvas_OnMouseWheel" MouseUp="ModelCanvas_OnMouseUp">
-                <Image Name="ModelImage" Stretch="UniformToFill" />
+            <Grid Grid.Row="1"
+                  Background="Gainsboro"
+                  Name="ModelCanvas"
+                  MouseMove="ModelCanvas_OnMouseMove"
+                  SizeChanged="ModelCanvas_OnSizeChanged"
+                  MouseDown="ModelCanvas_OnMouseDown"
+                  MouseWheel="ModelCanvas_OnMouseWheel"
+                  MouseUp="ModelCanvas_OnMouseUp">
+                <Image Name="ModelImage"
+                       Stretch="UniformToFill"/>
             </Grid>
-            <Label Grid.Row="2" Name="CoordsLabel" />
+            <Label Grid.Row="2"
+                   Name="CoordsLabel"/>
         </Grid>
     </Grid>
 </Window>

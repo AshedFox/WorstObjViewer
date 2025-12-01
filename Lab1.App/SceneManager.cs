@@ -1,9 +1,5 @@
-﻿// Licensed to the.NET Foundation under one or more agreements.
-// The.NET Foundation licenses this file to you under the MIT license.
-
-using System;
+﻿using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Threading;
@@ -23,384 +19,174 @@ public class SceneManager
 {
     public delegate void ChangeHandler();
 
-    private const int FramesPerSecond = 60;
-    private const double FramePeriod = 1000d / FramesPerSecond;
-
     private readonly Vector3 _lightVector = Vector3.Normalize(new Vector3(-1f, -1f, -1f));
-    private readonly SemaphoreSlim _semaphore = new(1, 1);
-    private readonly PeriodicTimer _timer;
-    private Color[] _brightColorsBuffer = Array.Empty<Color>();
 
-    private Color[] _colorsBuffer = Array.Empty<Color>();
-    private CancellationTokenSource? _cts;
-    private long _currentFrameStartAt;
-    private SpinLock[] _locks = Array.Empty<SpinLock>();
-    private byte[] _pixels = Array.Empty<byte>();
-    private Queue<long> _renders = new();
-    private float[] _zBuffer = Array.Empty<float>();
+    private Color[] _colorsBuffer = [];
+    private Color[] _brightColorsBuffer = [];
+    private Color[] _bloomTempbuffer = [];
+
+    private byte[] _pixels = [];
+
+    private int[] _zBuffer = [];
+
+    private bool _isDirty = false;
+    private bool _isRendering = false;
 
     private SceneManager()
     {
-        _timer = new PeriodicTimer(TimeSpan.FromMilliseconds(FramePeriod));
-        Draw();
+        MainCamera = new Camera(0, 0, 0, 0, 0, 0);
     }
 
     public static SceneManager Instance { get; } = new();
 
-    public Camera MainCamera { get; private set; } = new(0, 0, 80.0f,
-        GraphicsProcessor.ConvertDegreesToRadians(45), 1f, 1000.0f
-    );
-
+    public Camera MainCamera { get; private set; }
     public WriteableBitmap? WriteableBitmap { get; private set; }
-
     public Model? Model { get; set; }
-
     public int ViewportWidth { get; private set; }
     public int ViewportHeight { get; private set; }
-    public ShadowType ShadowType { get; private set; }
+    public ShadowType ShadowType { get; private set; } = ShadowType.PhongLight;
     public bool WithBloom { get; private set; }
 
     public event ChangeHandler? ChangeEvent;
 
     public void Init(int width, int height)
     {
-        _renders = new Queue<long>();
-
-        if (_cts is not null)
-        {
-            _cts.Cancel();
-        }
-
-        _cts = null;
-        _currentFrameStartAt = 0;
-
-        _pixels = Array.Empty<byte>();
-        _zBuffer = Array.Empty<float>();
-        _locks = Array.Empty<SpinLock>();
-
-        ViewportWidth = width;
-        ViewportHeight = height;
-        WriteableBitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Rgb24, null);
-        MainCamera = new Camera(width, height, 80.0f, GraphicsProcessor.ConvertDegreesToRadians(45),
-            1f, 2000.0f
-        );
-        ShadowType = ShadowType.PhongLight;
-        MainCamera.Change += AddFrame;
-
-        AddFrame();
+        MainCamera = new Camera(width, height, 80.0f, GraphicsProcessor.ConvertDegreesToRadians(45), 1f, 2000.0f);
+        MainCamera.Change += RequestRender;
+        Resize(width, height);
     }
 
     public void ChangeShadow(ShadowType shadowType)
     {
         ShadowType = shadowType;
-
-        AddFrame();
+        RequestRender();
     }
 
     public void ChangeBloom(bool withBloom)
     {
         WithBloom = withBloom;
-
-        AddFrame();
+        RequestRender();
     }
 
     public void ChangeModel(Model model)
     {
-        _renders = new Queue<long>();
-
-        if (_cts is not null)
-        {
-            _cts.Cancel();
-        }
-
-        _cts = null;
-
-        _currentFrameStartAt = 0;
-
-        _pixels = Array.Empty<byte>();
-        _zBuffer = Array.Empty<float>();
-        _locks = Array.Empty<SpinLock>();
-
         Model = model;
-        Model.Change += AddFrame;
-        MainCamera.Reset();
-
-        AddFrame();
+        Model.Change += RequestRender;
+        MainCamera?.Reset();
+        RequestRender();
     }
 
     public void Resize(int width, int height)
     {
         ViewportWidth = width;
         ViewportHeight = height;
+
+        var size = width * height;
+        _colorsBuffer = new Color[size];
+        _brightColorsBuffer = new Color[size];
+        _bloomTempbuffer = new Color[size];
+        _zBuffer = new int[size];
+        _pixels = new byte[size * 3];
+
         WriteableBitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Rgb24, null);
-        MainCamera.ViewportWidth = width;
-        MainCamera.ViewportHeight = height;
 
-        AddFrame();
+        if (MainCamera != null)
+        {
+            MainCamera.ViewportWidth = width;
+            MainCamera.ViewportHeight = height;
+        }
+
+        RequestRender();
     }
 
-    public void AddFrame() => _renders.Enqueue(DateTimeOffset.Now.ToUnixTimeMilliseconds());
-
-    private async void Draw()
+    public void RequestRender()
     {
-        while (await _timer.WaitForNextTickAsync())
+        _isDirty = true;
+        if (!_isRendering)
         {
-            ProcessFrame();
+            _ = RenderLoop();
         }
     }
 
-    private async void ProcessFrame()
+    private async Task RenderLoop()
     {
-        if (_renders.Count > 0)
+        _isRendering = true;
+        while (_isDirty)
         {
-            if (_semaphore.CurrentCount == 0)
-            {
-                if (_renders.Count > 1)
-                {
-                    _renders.TryDequeue(out _);
-                }
-
-                return;
-            }
-
-            if (await _semaphore.WaitAsync((int)(10 * FramePeriod)))
-            {
-                _renders.TryDequeue(out _);
-
-                _cts = new CancellationTokenSource();
-
-                _currentFrameStartAt = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-
-                await DrawFrame();
-
-                while (_renders.TryPeek(out var time) && time < _currentFrameStartAt)
-                {
-                    _renders.TryDequeue(out _);
-                }
-
-                OnChange();
-
-                if (_cts is not null)
-                {
-                    _cts.Dispose();
-                    _cts = null;
-                }
-
-                if (_semaphore.CurrentCount == 0)
-                {
-                    _semaphore.Release();
-                }
-            }
+            _isDirty = false;
+            await DrawFrame();
         }
+        _isRendering = false;
+        OnChange();
     }
 
     private async Task DrawFrame()
     {
-        if (Model is { } model && MainCamera is { } camera && WriteableBitmap is { } bitmap)
+        if (Model is not { } model || MainCamera is not { } camera || WriteableBitmap is not { } bitmap)
         {
-            var bytesPerPixel = bitmap.Format.BitsPerPixel / 8;
-            var size = ViewportHeight * ViewportWidth;
+            return;
+        }
 
-            Int32Rect rect = new(0, 0, ViewportWidth, ViewportHeight);
+        Array.Clear(_colorsBuffer, 0, _colorsBuffer.Length);
+        Array.Fill(_zBuffer, int.MaxValue);
 
-            if (_colorsBuffer.Length != size)
+        var width = ViewportWidth;
+
+        await Task.Run(() =>
+        {
+            var screenVertices = model.WorldVertices.Select(v => camera.ProjectToScreen(v)).ToArray();
+
+            Parallel.ForEach(Partitioner.Create(model.Polygons), polygon =>
             {
-                Array.Resize(ref _colorsBuffer, size);
-            }
+                IShadowProcessor? shadowProcessor = ShadowType switch
+                {
+                    ShadowType.None => null,
+                    ShadowType.Lambert => new LambertShadowProcessor(),
+                    ShadowType.Gouraud => new GouraudShadowProcessor(),
+                    ShadowType.PhongShadow => new PhongShadowProcessor(),
+                    ShadowType.PhongLight => new PhongLightProcessor(0.05f, 0.7f, 0.5f, 20),
+                    _ => null
+                };
 
-            Array.Fill(_colorsBuffer, new Color(0));
-
-            if (_pixels.Length != size * bytesPerPixel)
-            {
-                Array.Resize(ref _pixels, size * bytesPerPixel);
-            }
-
-            if (_zBuffer.Length != size)
-            {
-                Array.Resize(ref _zBuffer, size);
-            }
-
-            Array.Fill(_zBuffer, 0);
-
-            if (_locks.Length != size)
-            {
-                Array.Resize(ref _locks, size);
-            }
-
-            await Task.Run(() =>
-            {
-                Vector4[] screenVertices = model.WorldVertices.Select(v => camera.ProjectToScreen(v)).ToArray();
-
-                Parallel.ForEach(Partitioner.Create(model.Polygons),
-                    polygon =>
-                    {
-                        if (_cts is { IsCancellationRequested: true })
-                        {
-                            return;
-                        }
-
-                        IShadowProcessor? shadowProcessor;
-
-                        switch (ShadowType)
-                        {
-                            case ShadowType.None:
-                                shadowProcessor = null;
-                                break;
-                            case ShadowType.Lambert:
-                                shadowProcessor = new LambertShadowProcessor();
-                                break;
-                            case ShadowType.Gouraud:
-                                shadowProcessor = new GouraudShadowProcessor();
-                                break;
-                            case ShadowType.PhongShadow:
-                                shadowProcessor = new PhongShadowProcessor();
-                                break;
-                            case ShadowType.PhongLight:
-                                shadowProcessor = new PhongLightProcessor(0.05f, 0.7f, 0.5f, 20);
-                                break;
-                            default:
-                                throw new ArgumentOutOfRangeException();
-                        }
-
-                        GraphicsProcessor.FillPolygonColors(ref _colorsBuffer, ref _zBuffer, ref _locks, ref polygon,
-                            ref screenVertices, ref model, ref camera, shadowProcessor, _lightVector
-                        );
-                    }
+                GraphicsProcessor.FillPolygonColors(_colorsBuffer, _zBuffer, polygon,
+                    screenVertices, model, camera, shadowProcessor, _lightVector
                 );
-
-                if (!WithBloom)
-                {
-                    Parallel.For(0, _colorsBuffer.Length, i =>
-                    {
-                        if (_cts is { IsCancellationRequested: true })
-                        {
-                            return;
-                        }
-
-                        Color color = GraphicsProcessor.ACESMapTone(_colorsBuffer[i]) * 255 * _colorsBuffer[i].Alpha;
-
-                        _pixels[bytesPerPixel * i] = (byte)color.Red;
-                        _pixels[bytesPerPixel * i + 1] = (byte)color.Green;
-                        _pixels[bytesPerPixel * i + 2] = (byte)color.Blue;
-                    });
-                }
-                else if (model.EmissionTexture is not null)
-                {
-                    if (_brightColorsBuffer.Length != size)
-                    {
-                        Array.Resize(ref _brightColorsBuffer, size);
-                    }
-
-                    Parallel.For(0, _colorsBuffer.Length, i =>
-                    {
-                        if (0.2126 * _colorsBuffer[i].Red + 0.7152 * _colorsBuffer[i].Green +
-                            0.0722 * _colorsBuffer[i].Blue > 1)
-                        {
-                            _brightColorsBuffer[i] = _colorsBuffer[i];
-                        }
-                        else
-                        {
-                            _brightColorsBuffer[i] = new Color(0);
-                        }
-                    });
-
-                    var sigma = 10;
-                    var weights = new float[6 * sigma + 1];
-                    for (var i = 0; i < weights.Length; i++)
-                    {
-                        weights[i] = 1 / MathF.Sqrt(2 * MathF.PI * sigma * sigma) *
-                                     MathF.Exp(-i * i / (2f * sigma * sigma));
-                    }
-
-                    Color[] buffer = new Color[_brightColorsBuffer.Length];
-
-                    for (var i = 0; i < 1; i++)
-                    {
-                        Parallel.For(0, buffer.Length, offset =>
-                        {
-                            if (_cts is { IsCancellationRequested: true })
-                            {
-                                return;
-                            }
-
-                            buffer[offset] = _brightColorsBuffer[offset] * weights[0];
-
-                            for (var j = 1; j < weights.Length; j++)
-                            {
-                                var index = offset + j;
-
-                                if (index / ViewportWidth == offset / ViewportWidth &&
-                                    index < _brightColorsBuffer.Length && index >= 0)
-                                {
-                                    buffer[offset] += _brightColorsBuffer[index] * weights[j];
-                                }
-
-                                index = offset - j;
-
-                                if (index / ViewportWidth == offset / ViewportWidth &&
-                                    index < _brightColorsBuffer.Length && index >= 0)
-                                {
-                                    buffer[offset] += _brightColorsBuffer[index] * weights[j];
-                                }
-                            }
-                        });
-
-                        buffer.CopyTo(_brightColorsBuffer, 0);
-
-                        Parallel.For(0, buffer.Length, offset =>
-                        {
-                            if (_cts is { IsCancellationRequested: true })
-                            {
-                                return;
-                            }
-
-                            buffer[offset] = _brightColorsBuffer[offset] * weights[0];
-
-                            for (var j = 1; j < weights.Length; j++)
-                            {
-                                var index = offset + j * ViewportWidth;
-
-                                if (index < _brightColorsBuffer.Length && index >= 0)
-                                {
-                                    buffer[offset] += _brightColorsBuffer[index] * weights[j];
-                                }
-
-                                index = offset - j * ViewportWidth;
-
-                                if (index < _brightColorsBuffer.Length && index >= 0)
-                                {
-                                    buffer[offset] += _brightColorsBuffer[index] * weights[j];
-                                }
-                            }
-                        });
-
-                        buffer.CopyTo(_brightColorsBuffer, 0);
-                    }
-
-                    Parallel.For(0, _colorsBuffer.Length, i =>
-                    {
-                        if (_cts is { IsCancellationRequested: true })
-                        {
-                            return;
-                        }
-
-                        Color color = GraphicsProcessor.ACESMapTone(_colorsBuffer[i] + _brightColorsBuffer[i])
-                                      * 255 * _colorsBuffer[i].Alpha;
-
-                        _pixels[bytesPerPixel * i] = (byte)color.Red;
-                        _pixels[bytesPerPixel * i + 1] = (byte)color.Green;
-                        _pixels[bytesPerPixel * i + 2] = (byte)color.Blue;
-                    });
-                }
             });
 
-            if (_cts is { IsCancellationRequested: true })
+            if (WithBloom && model.EmissionTexture != null)
             {
-                return;
+                ApplyBloom();
             }
 
-            bitmap.WritePixels(rect, _pixels, rect.Width * bytesPerPixel, 0);
-        }
+            Parallel.For(0, _colorsBuffer.Length, i =>
+            {
+                var color = GraphicsProcessor.ACESMapTone(_colorsBuffer[i]) * 255 * _colorsBuffer[i].Alpha;
+                var idx = i * 3;
+                _pixels[idx] = (byte)color.Red;
+                _pixels[idx + 1] = (byte)color.Green;
+                _pixels[idx + 2] = (byte)color.Blue;
+            });
+        });
+
+        Int32Rect rect = new(0, 0, ViewportWidth, ViewportHeight);
+        bitmap.WritePixels(rect, _pixels, ViewportWidth * 3, 0);
+    }
+
+    private void ApplyBloom()
+    {
+        Parallel.For(0, _colorsBuffer.Length, i =>
+        {
+            var c = _colorsBuffer[i];
+            if (0.2126 * c.Red + 0.7152 * c.Green + 0.0722 * c.Blue > 1)
+                _brightColorsBuffer[i] = c;
+            else
+                _brightColorsBuffer[i] = Color.Zero;
+        });
+
+        Parallel.For(0, _colorsBuffer.Length, i =>
+        {
+            _colorsBuffer[i] += _brightColorsBuffer[i];
+        });
     }
 
     protected virtual void OnChange() => ChangeEvent?.Invoke();
